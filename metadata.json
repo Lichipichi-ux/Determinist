@@ -1,0 +1,5 @@
+{
+  "name": "LedgerGen Deterministic",
+  "description": "A strict, deterministic engine that transforms an uploaded General Journal (Libro Diario) into a General Ledger (Libro Mayor) following Guatemalan accounting rules. No manual entry, no editing, just pure structural validation and aggregation.",
+  "requestFramePermissions": []
+}
