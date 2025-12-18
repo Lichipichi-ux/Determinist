@@ -30,3 +30,29 @@ export interface ProcessingError {
 export type ParseResult = 
   | { success: true; data: JournalEntry[] }
   | { success: false; errors: ProcessingError[] };
+
+// --- Chart Selector / Structure Compiler Types ---
+
+export interface ChartNode {
+  id: string;
+  name: string;
+  code?: string;
+  isMandatory?: boolean;
+  children?: ChartNode[];
+  level: 'GROUP' | 'SUBGROUP' | 'ACCOUNT';
+}
+
+export interface ChartSelectionState {
+  // Source of truth: BookID -> { selectedIds, selectionOrder }
+  [bookId: string]: {
+    selectedIds: Set<string>;
+    selectionOrder: string[];
+  };
+}
+
+export interface FinancialStructure {
+  id: string;
+  title: string;
+  rootNodes: ChartNode[];
+  obligatoryRules: string[]; // Logic identifiers for forced rows
+}
