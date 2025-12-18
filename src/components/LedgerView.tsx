@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AccountLedger } from '../types';
 import { CURRENCY_FORMAT } from '../utils/constants';
-import { Search, Filter, Download, ArrowRightCircle } from 'lucide-react';
+import { Search, Filter, Download, ArrowRightCircle, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface LedgerViewProps {
@@ -28,14 +28,14 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName }) => {
   const currentAccount = ledgerData[selectedAccountCode];
 
   // Filter accounts list
-  const filteredAccounts = accounts.filter(acc => 
+  const filteredAccounts = accounts.filter(acc =>
     acc.accountCode.toLowerCase().includes(filterText.toLowerCase()) ||
     acc.accountName.toLowerCase().includes(filterText.toLowerCase())
   );
 
   const exportToExcel = () => {
     if (!currentAccount) return;
-    
+
     const wsData = currentAccount.entries.map(e => ({
       'Fecha': e.date,
       'ID Asiento': e.entryId,
@@ -57,19 +57,28 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName }) => {
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-obsidian rounded-sm border border-obsidian/10 dark:border-white/10 shadow-sm overflow-hidden md:flex-row">
-      
+
       {/* Sidebar: Account Selection */}
       <div className="w-full md:w-80 bg-seashell dark:bg-[#222222] border-b md:border-b-0 md:border-r border-obsidian/10 dark:border-white/10 flex flex-col h-[300px] md:h-full shrink-0">
-        <div className="p-3 border-b border-obsidian/10 dark:border-white/10 bg-obsidian/5 dark:bg-white/5 shrink-0">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-obsidian/40 dark:text-seashell/40" />
+        <div className="p-3 border-b border-obsidian/10 dark:border-white/10 bg-obsidian/5 dark:bg-white/5 shrink-0 z-10 sticky top-0">
+          <div className="relative w-full flex items-center">
+            <Search className="absolute left-3 w-4 h-4 text-obsidian/40 dark:text-seashell/40 pointer-events-none" />
             <input
               type="text"
-              placeholder="Filtrar Cuentas..."
+              placeholder="Buscar cuenta inteligente..."
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 rounded-sm text-xs focus:outline-none focus:border-denim text-obsidian dark:text-seashell transition-all shadow-sm"
+              className="w-full pl-9 pr-8 py-2 bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 rounded-md text-sm focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim text-obsidian dark:text-seashell transition-all shadow-sm placeholder:text-obsidian/30 dark:placeholder:text-seashell/30 truncate"
             />
+            {filterText && (
+              <button
+                onClick={() => setFilterText('')}
+                className="absolute right-2.5 p-0.5 text-obsidian/40 hover:text-denim dark:text-seashell/40 dark:hover:text-denim transition-colors rounded-full hover:bg-obsidian/5 dark:hover:bg-white/10"
+                title="Limpiar búsqueda"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
         <div className="flex-1 overflow-y-auto min-h-0">
@@ -99,7 +108,7 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName }) => {
 
       {/* Main Content: Ledger Table */}
       <div className="flex-1 flex flex-col h-[500px] md:h-full overflow-hidden bg-white dark:bg-obsidian">
-        
+
         {/* Header */}
         {currentAccount && (
           <div className="px-6 py-4 border-b border-obsidian/10 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-obsidian shrink-0">
@@ -114,7 +123,7 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName }) => {
               </div>
               <h2 className="text-lg font-bold text-obsidian dark:text-seashell uppercase tracking-tight">{currentAccount.accountName}</h2>
             </div>
-            
+
             <div className="flex items-center gap-6 bg-seashell dark:bg-white/5 px-4 py-2 rounded-sm border border-obsidian/5 dark:border-white/5">
               <div className="text-right">
                 <div className="text-[10px] text-obsidian/50 dark:text-seashell/50 uppercase font-bold tracking-wider">Saldo Acumulado</div>
@@ -123,9 +132,9 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName }) => {
                 </div>
               </div>
               <div className="h-8 w-px bg-obsidian/10 dark:bg-white/10"></div>
-              <button 
+              <button
                 onClick={exportToExcel}
-                className="text-obsidian/40 hover:text-denim dark:text-seashell/40 dark:hover:text-denim transition-colors" 
+                className="text-obsidian/40 hover:text-denim dark:text-seashell/40 dark:hover:text-denim transition-colors"
                 title="Descargar Hoja de Cálculo"
               >
                 <Download className="w-5 h-5" />
@@ -179,20 +188,20 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName }) => {
                       {CURRENCY_FORMAT.format(currentAccount.entries.reduce((sum, e) => sum + e.debit, 0))}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-denim text-xs">
-                       {CURRENCY_FORMAT.format(currentAccount.entries.reduce((sum, e) => sum + e.credit, 0))}
+                      {CURRENCY_FORMAT.format(currentAccount.entries.reduce((sum, e) => sum + e.credit, 0))}
                     </td>
                     <td className={`px-4 py-3 text-right font-mono text-xs border-l border-obsidian/5 dark:border-white/5 bg-obsidian/10 dark:bg-white/10 ${currentAccount.finalBalance < 0 ? 'text-red-600' : 'text-obsidian dark:text-seashell'}`}>
-                       {CURRENCY_FORMAT.format(currentAccount.finalBalance)}
+                      {CURRENCY_FORMAT.format(currentAccount.finalBalance)}
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
           ) : (
-             <div className="h-full flex flex-col items-center justify-center text-obsidian/30 dark:text-seashell/30">
-               <ArrowRightCircle className="w-10 h-10 mb-3 opacity-30" strokeWidth={1} />
-               <p className="text-sm font-medium">Seleccione una cuenta del listado.</p>
-             </div>
+            <div className="h-full flex flex-col items-center justify-center text-obsidian/30 dark:text-seashell/30">
+              <ArrowRightCircle className="w-10 h-10 mb-3 opacity-30" strokeWidth={1} />
+              <p className="text-sm font-medium">Seleccione una cuenta del listado.</p>
+            </div>
           )}
         </div>
       </div>
