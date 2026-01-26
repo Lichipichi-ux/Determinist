@@ -1,5 +1,7 @@
 import { JournalEntry, AccountLedger, LedgerLine } from '../types';
 
+import { areStringsSimilar } from '../utils/stringSimilarity';
+
 /**
  * Core Logic: Group by Account and Calculate Running Balance
  * Algorithm per Ticket 3.3: saldo += debe; saldo -= haber;
@@ -16,11 +18,24 @@ export const generateLedger = (entries: JournalEntry[]): Record<string, AccountL
 
   entries.forEach(entry => {
     // Normalize code to uppercase to ensure "Caja" == "CAJA" == "caja" (Ticket: Case Insensitive Grouping)
-    const code = entry.accountCode.trim().toUpperCase();
+    const normalizedCode = entry.accountCode.trim().toUpperCase();
+    let targetKey = normalizedCode;
 
-    if (!ledgerMap[code]) {
-      ledgerMap[code] = {
-        accountCode: code,
+    // 1. Try Exact Match
+    if (!ledgerMap[targetKey]) {
+      // 2. Try Fuzzy Match (Ticket: Handle Typos like "Interezez" vs "Intereses")
+      // Check if any existing key is similar enough (>85% match or limited edits)
+      const similarKey = Object.keys(ledgerMap).find(k => areStringsSimilar(k, normalizedCode));
+
+      if (similarKey) {
+        // Found a match! Use the existing key so they group together.
+        targetKey = similarKey;
+      }
+    }
+
+    if (!ledgerMap[targetKey]) {
+      ledgerMap[targetKey] = {
+        accountCode: targetKey,
         accountName: entry.accountName, // Keep original name of first occurrence
         entries: [],
         finalBalance: 0,
@@ -29,7 +44,7 @@ export const generateLedger = (entries: JournalEntry[]): Record<string, AccountL
     }
 
     // Get previous balance
-    const currentLedger = ledgerMap[code];
+    const currentLedger = ledgerMap[targetKey];
     const previousBalance = currentLedger.entries.length > 0
       ? currentLedger.entries[currentLedger.entries.length - 1].runningBalance
       : 0;
