@@ -12,11 +12,19 @@ interface LedgerViewProps {
 const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName }) => {
   const [selectedAccountCode, setSelectedAccountCode] = useState<string>('');
   const [filterText, setFilterText] = useState('');
+  const [sortMode, setSortMode] = useState<'ALPHA' | 'BOOK'>('BOOK');
 
   // Get list of accounts for sidebar/dropdown
   const accounts = useMemo(() => {
-    return (Object.values(ledgerData) as AccountLedger[]).sort((a, b) => a.accountCode.localeCompare(b.accountCode));
-  }, [ledgerData]);
+    const list = Object.values(ledgerData) as AccountLedger[];
+
+    if (sortMode === 'ALPHA') {
+      return list.sort((a, b) => a.accountCode.localeCompare(b.accountCode));
+    } else {
+      // Book Order (Appearance)
+      return list.sort((a, b) => (a.firstLine || 0) - (b.firstLine || 0));
+    }
+  }, [ledgerData, sortMode]);
 
   // Set default account on load
   React.useEffect(() => {
@@ -60,12 +68,29 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName }) => {
 
       {/* Sidebar: Account Selection */}
       <div className="w-full md:w-80 bg-seashell dark:bg-[#222222] border-b md:border-b-0 md:border-r border-obsidian/10 dark:border-white/10 flex flex-col h-[300px] md:h-full shrink-0">
-        <div className="p-3 border-b border-obsidian/10 dark:border-white/10 bg-obsidian/5 dark:bg-white/5 shrink-0 z-10 sticky top-0">
+        <div className="p-3 border-b border-obsidian/10 dark:border-white/10 bg-obsidian/5 dark:bg-white/5 shrink-0 z-10 sticky top-0 flex flex-col gap-2">
+
+          {/* SORT TOGGLE */}
+          <div className="flex bg-white dark:bg-obsidian rounded border border-obsidian/10 dark:border-white/10 p-0.5 mb-1">
+            <button
+              onClick={() => setSortMode('BOOK')}
+              className={`flex-1 text-[10px] uppercase font-bold py-1.5 rounded-sm transition-colors ${sortMode === 'BOOK' ? 'bg-denim text-white shadow-sm' : 'text-obsidian/50 dark:text-seashell/50 hover:bg-obsidian/5 dark:hover:bg-white/5'}`}
+            >
+              Por Diario
+            </button>
+            <button
+              onClick={() => setSortMode('ALPHA')}
+              className={`flex-1 text-[10px] uppercase font-bold py-1.5 rounded-sm transition-colors ${sortMode === 'ALPHA' ? 'bg-denim text-white shadow-sm' : 'text-obsidian/50 dark:text-seashell/50 hover:bg-obsidian/5 dark:hover:bg-white/5'}`}
+            >
+              Alfabético
+            </button>
+          </div>
+
           <div className="relative w-full flex items-center">
             <Search className="absolute left-3 w-4 h-4 text-obsidian/40 dark:text-seashell/40 pointer-events-none" />
             <input
               type="text"
-              placeholder="Buscar cuenta inteligente..."
+              placeholder="Buscar cuenta..."
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
               className="w-full pl-9 pr-8 py-2 bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 rounded-md text-sm focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim text-obsidian dark:text-seashell transition-all shadow-sm placeholder:text-obsidian/30 dark:placeholder:text-seashell/30 truncate"

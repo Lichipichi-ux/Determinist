@@ -4,12 +4,12 @@ import { ChartNode, ChartSelectionState } from '../types';
 import { ALL_STRUCTURES } from '../data/chartStructures';
 
 // Sub-componente optimizado con React.memo para evitar re-renders innecesarios
-const TreeNode = memo(({ 
-  node, 
-  depth, 
-  isExpanded, 
-  isSelected, 
-  onToggleExpand, 
+const TreeNode = memo(({
+  node,
+  depth,
+  isExpanded,
+  isSelected,
+  onToggleExpand,
   onToggleSelect,
   filterText,
   matchesFilter
@@ -38,7 +38,7 @@ const TreeNode = memo(({
 
   return (
     <div className="select-none">
-      <div 
+      <div
         onClick={handleClick}
         className={`flex items-center py-1.5 px-3 border-b border-obsidian/5 dark:border-white/5 cursor-pointer transition-all duration-75 group
           ${isSelected ? 'bg-denim/10 dark:bg-denim/20' : 'hover:bg-denim/[0.04] dark:hover:bg-white/[0.04]'}
@@ -60,8 +60,8 @@ const TreeNode = memo(({
         <div className="w-6 shrink-0 flex items-center justify-center mr-2">
           {!hasChildren && (
             <div className={`border rounded-[2px] w-3.5 h-3.5 flex items-center justify-center transition-all
-              ${isSelected 
-                ? 'bg-denim border-denim shadow-[0_0_4px_rgba(91,131,174,0.4)]' 
+              ${isSelected
+                ? 'bg-denim border-denim shadow-[0_0_4px_rgba(91,131,174,0.4)]'
                 : 'bg-white dark:bg-obsidian border-obsidian/20 dark:border-white/20 group-hover:border-denim/50'
               }`}
             >
@@ -92,7 +92,7 @@ const ChartSelector: React.FC = () => {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['bg_activo', 'bg_anc', 'cp_mpc', 'cp_cpri', 'er_iop', 'er_cdv']));
   const [filterText, setFilterText] = useState('');
   const [copied, setCopied] = useState(false);
-  
+
   const [globalSelection, setGlobalSelection] = useState<ChartSelectionState>(() => {
     const initialState: ChartSelectionState = {};
     ALL_STRUCTURES.forEach(book => {
@@ -104,7 +104,7 @@ const ChartSelector: React.FC = () => {
     return initialState;
   });
 
-  const activeBook = useMemo(() => 
+  const activeBook = useMemo(() =>
     ALL_STRUCTURES.find(b => b.id === activeBookId) || ALL_STRUCTURES[0],
     [activeBookId]
   );
@@ -151,8 +151,8 @@ const ChartSelector: React.FC = () => {
   const matchesFilter = useCallback((node: ChartNode, text: string): boolean => {
     if (!text) return true;
     const lowerText = text.toLowerCase();
-    const selfMatches = node.name.toLowerCase().includes(lowerText) || 
-                       (node.code?.toLowerCase().includes(lowerText) || false);
+    const selfMatches = node.name.toLowerCase().includes(lowerText) ||
+      (node.code?.toLowerCase().includes(lowerText) || false);
     if (selfMatches) return true;
     return node.children?.some(child => matchesFilter(child, text)) || false;
   }, []);
@@ -226,30 +226,30 @@ const ChartSelector: React.FC = () => {
 
       if (activeBook.id === 'BG_GUA') {
         if (rule === 'NO CORRIENTE' && lastLine === 'ACTIVO') {
-          injectSubgroup('bg_ppe', 'PROPIEDAD, PLANTA Y EQUIPO', 1);
-          injectSubgroup('bg_ilp', 'INVERSIONES A LARGO PLAZO', 1);
-          injectSubgroup('bg_int', 'ACTIVOS INTANGIBLES', 1);
+          injectDirectAccounts('bg_ppe', 1);
+          injectDirectAccounts('bg_ilp', 1);
+          injectDirectAccounts('bg_int', 1);
           injectDirectAccounts('bg_oanc', 1);
         } else if (rule === 'CORRIENTE' && lines.some(l => l.name === 'ACTIVO') && !lines.some(l => l.name === 'PASIVO')) {
-          injectSubgroup('bg_inv', 'INVENTARIOS', 1);
-          injectSubgroup('bg_it', 'INVERSIONES TEMPORALES', 1);
-          injectSubgroup('bg_cxc', 'CUENTAS POR COBRAR', 1);
-          injectSubgroup('bg_ad', 'ACTIVOS DIFERIDOS', 1);
-          injectSubgroup('bg_eye', 'EFECTIVO Y EQUIVALENTES', 1);
+          injectDirectAccounts('bg_inv', 1);
+          injectDirectAccounts('bg_it', 1);
+          injectDirectAccounts('bg_cxc', 1);
+          injectDirectAccounts('bg_ad', 1);
+          injectDirectAccounts('bg_eye', 1);
         } else if (rule === 'NO CORRIENTE' && lines.some(l => l.name === 'PASIVO')) {
-          injectSubgroup('bg_dlp', 'DEUDAS A LARGO PLAZO', 1);
-          injectSubgroup('bg_plp', 'PROVISIONES A LARGO PLAZO', 1);
+          injectDirectAccounts('bg_dlp', 1);
+          injectDirectAccounts('bg_plp', 1);
         } else if (rule === 'CORRIENTE' && lines.some(l => l.name === 'PASIVO')) {
-          injectSubgroup('bg_of', 'OBLIGACIONES FINANCIERAS', 1);
-          injectSubgroup('bg_cxpc', 'CUENTAS POR PAGAR COMERCIALES', 1);
-          injectSubgroup('bg_ipp', 'IMPUESTOS POR PAGAR', 1);
-          injectSubgroup('bg_ol', 'OBLIGACIONES LABORALES', 1);
-          injectSubgroup('bg_oo', 'OTRAS OBLIGACIONES', 1);
-          injectSubgroup('bg_idif', 'INGRESOS DIFERIDOS', 1);
+          injectDirectAccounts('bg_of', 1);
+          injectDirectAccounts('bg_cxpc', 1);
+          injectDirectAccounts('bg_ipp', 1);
+          injectDirectAccounts('bg_ol', 1);
+          injectDirectAccounts('bg_oo', 1);
+          injectDirectAccounts('bg_idif', 1);
         } else if (rule === 'PATRIMONIO NETO') {
           injectDirectAccounts('bg_pat', 1);
         }
-      } 
+      }
       else if (activeBook.id === 'CP_GUA') {
         if (rule === 'MOVIMIENTO DE MATERIA PRIMA') {
           injectDirectAccounts('cp_mpc', 1);
@@ -294,7 +294,7 @@ const ChartSelector: React.FC = () => {
   const renderNodesRecursive = useCallback((nodes: ChartNode[], depth = 0): React.ReactNode => {
     return nodes.map(node => (
       <React.Fragment key={node.id}>
-        <TreeNode 
+        <TreeNode
           node={node}
           depth={depth}
           isExpanded={expandedNodes.has(node.id)}
@@ -315,8 +315,8 @@ const ChartSelector: React.FC = () => {
       <div className="w-full md:w-64 bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 rounded-sm flex flex-col shrink-0 shadow-sm overflow-hidden">
         <div className="p-3 border-b border-obsidian/10 dark:border-white/10 bg-obsidian/5 dark:bg-white/5">
           <div className="flex items-center gap-2 mb-3">
-             <Book className="w-4 h-4 text-denim" />
-             <h3 className="text-[10px] font-bold uppercase tracking-widest text-obsidian/60 dark:text-seashell/60">Libros Contables</h3>
+            <Book className="w-4 h-4 text-denim" />
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-obsidian/60 dark:text-seashell/60">Libros Contables</h3>
           </div>
           <div className="space-y-1">
             {ALL_STRUCTURES.map(str => (
@@ -349,7 +349,7 @@ const ChartSelector: React.FC = () => {
       {/* Main Area: Tree with Refined Header */}
       <div className="flex-1 bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 rounded-sm flex flex-col shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-obsidian/10 dark:border-white/10 flex items-center justify-between bg-white dark:bg-obsidian shrink-0 gap-4">
-          
+
           {/* Static Title Container - Prevents Search Bar Shifting */}
           <div className="flex items-center gap-3 min-w-[280px]">
             <Hash className="w-4 h-4 text-denim shrink-0" />
@@ -362,9 +362,9 @@ const ChartSelector: React.FC = () => {
           <div className="flex-1 flex justify-center max-w-lg">
             <div className="relative w-full max-w-xs group">
               <Search className="absolute left-2.5 top-1.5 w-3.5 h-3.5 text-obsidian/30 dark:text-seashell/30 group-focus-within:text-denim transition-colors" />
-              <input 
-                type="text" 
-                placeholder="Buscar cuenta inteligente..." 
+              <input
+                type="text"
+                placeholder="Buscar cuenta inteligente..."
                 value={filterText}
                 onChange={e => setFilterText(e.target.value)}
                 className="w-full pl-8 pr-2 py-1.5 bg-seashell/50 dark:bg-white/5 border border-obsidian/10 dark:border-white/10 rounded-sm text-[10px] focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim/20 shadow-inner transition-all placeholder:text-obsidian/30 dark:placeholder:text-seashell/20"
@@ -374,8 +374,8 @@ const ChartSelector: React.FC = () => {
 
           {/* Actions Container - Visible and Stable */}
           <div className="flex items-center justify-end min-w-[100px]">
-            <button 
-              onClick={resetBookSelections} 
+            <button
+              onClick={resetBookSelections}
               className="flex items-center gap-1.5 px-3 py-1.5 text-obsidian/50 dark:text-seashell/70 hover:text-red-600 dark:hover:text-red-400 transition-colors text-[9px] font-black uppercase tracking-widest bg-obsidian/5 dark:bg-white/5 rounded-sm active:scale-95"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -392,43 +392,43 @@ const ChartSelector: React.FC = () => {
       {/* Right Sidebar: Preview & Clipboard */}
       <div className="hidden xl:flex w-96 bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 rounded-sm flex flex-col shrink-0 shadow-sm overflow-hidden">
         <div className="p-4 bg-slate-950/5 dark:bg-white/5 border-b border-obsidian/10 dark:border-white/10 flex justify-between items-center">
-           <h3 className="text-sm font-bold text-slate-800 dark:text-seashell uppercase tracking-tight">
-             Estructura Compilada
-           </h3>
-           <span className="text-[9px] font-mono font-bold text-denim px-1.5 bg-denim/10 rounded-full">
+          <h3 className="text-sm font-bold text-slate-800 dark:text-seashell uppercase tracking-tight">
+            Estructura Compilada
+          </h3>
+          <span className="text-[9px] font-mono font-bold text-denim px-1.5 bg-denim/10 rounded-full">
             {currentBookState.selectedIds.size} opcionales
           </span>
         </div>
-        
-        <div className="p-4 flex-1 overflow-hidden flex flex-col">
-           <div className="flex items-center gap-2 mb-4">
-             <FileSpreadsheet className="w-4 h-4 text-slate-400" />
-             <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">VISTA PREVIA DE ESTRUCTURA</h4>
-           </div>
 
-           <div className="bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 rounded-md p-4 flex-1 overflow-y-auto shadow-inner">
-             <div className="space-y-1 font-mono text-[11px] leading-relaxed text-slate-700 dark:text-slate-300">
-               {compiledStructure.map((line, idx) => (
-                 <div key={idx} className="uppercase py-0.5 whitespace-pre" style={{ paddingLeft: `${line.level * 16}px` }}>
-                   {line.name}
-                 </div>
-               ))}
-             </div>
-           </div>
+        <div className="p-4 flex-1 overflow-hidden flex flex-col">
+          <div className="flex items-center gap-2 mb-4">
+            <FileSpreadsheet className="w-4 h-4 text-slate-400" />
+            <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">VISTA PREVIA DE ESTRUCTURA</h4>
+          </div>
+
+          <div className="bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 rounded-md p-4 flex-1 overflow-y-auto shadow-inner">
+            <div className="space-y-1 font-mono text-[11px] leading-relaxed text-slate-700 dark:text-slate-300">
+              {compiledStructure.map((line, idx) => (
+                <div key={idx} className="uppercase py-0.5 whitespace-pre" style={{ paddingLeft: `${line.level * 16}px` }}>
+                  {line.name}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="mt-auto p-4 border-t border-obsidian/10 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-           <button 
-             onClick={copyToExcelFormat}
-             className={`w-full flex items-center justify-center gap-2 py-3 text-white text-[11px] font-bold uppercase tracking-widest rounded-sm transition-all shadow-lg active:scale-95
+          <button
+            onClick={copyToExcelFormat}
+            className={`w-full flex items-center justify-center gap-2 py-3 text-white text-[11px] font-bold uppercase tracking-widest rounded-sm transition-all shadow-lg active:scale-95
                ${copied ? 'bg-emerald-600' : 'bg-denim hover:bg-denim/90'}`}
-           >
-             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-             {copied ? '¡Copiado!' : 'Copiar formato Excel'}
-           </button>
-           <p className="text-[9px] text-center mt-3 text-obsidian/40 uppercase font-bold tracking-tighter">
-             Copiado con espacios para preservar la sangría en una sola columna de Excel
-           </p>
+          >
+            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {copied ? '¡Copiado!' : 'Copiar formato Excel'}
+          </button>
+          <p className="text-[9px] text-center mt-3 text-obsidian/40 uppercase font-bold tracking-tighter">
+            Copiado con espacios para preservar la sangría en una sola columna de Excel
+          </p>
         </div>
       </div>
     </div>

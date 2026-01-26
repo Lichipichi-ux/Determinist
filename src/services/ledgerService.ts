@@ -15,21 +15,23 @@ export const generateLedger = (entries: JournalEntry[]): Record<string, AccountL
   // entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   entries.forEach(entry => {
-    const code = entry.accountCode;
+    // Normalize code to uppercase to ensure "Caja" == "CAJA" == "caja" (Ticket: Case Insensitive Grouping)
+    const code = entry.accountCode.trim().toUpperCase();
 
     if (!ledgerMap[code]) {
       ledgerMap[code] = {
         accountCode: code,
-        accountName: entry.accountName,
+        accountName: entry.accountName, // Keep original name of first occurrence
         entries: [],
-        finalBalance: 0
+        finalBalance: 0,
+        firstLine: entry.originalLine
       };
     }
 
     // Get previous balance
     const currentLedger = ledgerMap[code];
-    const previousBalance = currentLedger.entries.length > 0 
-      ? currentLedger.entries[currentLedger.entries.length - 1].runningBalance 
+    const previousBalance = currentLedger.entries.length > 0
+      ? currentLedger.entries[currentLedger.entries.length - 1].runningBalance
       : 0;
 
     // Calculate new balance (Ticket 3.3)

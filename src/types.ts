@@ -19,6 +19,7 @@ export interface AccountLedger {
   accountName: string;
   entries: LedgerLine[];
   finalBalance: number;
+  firstLine: number; // Order of appearance
 }
 
 export interface ProcessingError {
@@ -27,7 +28,7 @@ export interface ProcessingError {
   type: 'STRUCTURAL' | 'DATA_TYPE' | 'FORMAT';
 }
 
-export type ParseResult = 
+export type ParseResult =
   | { success: true; data: JournalEntry[] }
   | { success: false; errors: ProcessingError[] };
 

@@ -30,9 +30,14 @@ interface ColumnMapping {
  * Helper: Identify column indices from a header row
  */
 const mapColumns = (headers: any[]): ColumnMapping | null => {
-  const lowerHeaders = headers.map(h => String(h).toLowerCase().trim());
+  // Safe map: Handle holes in sparse arrays
+  const lowerHeaders = Array.from(headers || []).map(h =>
+    (h === undefined || h === null) ? '' : String(h).toLowerCase().trim()
+  );
 
-  const findIndex = (candidates: string[]) => lowerHeaders.findIndex(h => candidates.some(c => h.includes(c)));
+  const findIndex = (candidates: string[]) => lowerHeaders.findIndex(h =>
+    h && candidates.some(c => h.includes(c))
+  );
 
   const date = findIndex(HEADER_CANDIDATES.DATE);
   const debit = findIndex(HEADER_CANDIDATES.DEBIT);
@@ -65,6 +70,114 @@ const parseExcelDate = (val: any): string | null => {
 };
 
 /**
+ * Helper: Remove empty rows from the start of the dataset
+ */
+const trimEmptyRows = (data: any[][]): any[][] => {
+  let startIndex = 0;
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    // Check if row has any non-empty cell
+    const hasContent = row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '');
+    if (hasContent) {
+      startIndex = i;
+      break;
+    }
+  }
+  return data.slice(startIndex);
+};
+
+/**
+ * Helper: Infer columns if no headers are found (Fallback Strategy)
+ */
+const inferColumns = (data: any[][]): ColumnMapping | null => {
+  // We need at least a few rows to guess
+  if (data.length < 2) return null;
+
+  // Statistics per column
+  const colStats = new Map<number, { numbers: number; text: number }>();
+
+  // Sample first 50 rows
+  const sample = data.slice(0, 50);
+
+  // Safely determine max column index
+  const maxColIndex = sample.reduce((max, row) => Math.max(max, row ? row.length : 0), 0);
+
+  for (let c = 0; c < maxColIndex; c++) {
+    colStats.set(c, { numbers: 0, text: 0 });
+  }
+
+  sample.forEach(row => {
+    if (!Array.isArray(row)) return;
+    row.forEach((cell, idx) => {
+      if (!cell) return;
+
+      const stats = colStats.get(idx);
+      if (!stats) return; // Prevention of crash
+
+      const str = String(cell).trim();
+      if (!str) return;
+
+      const val = parseFloat(str.replace(/[^0-9.-]/g, ''));
+      if (!isNaN(val) && /[0-9]/.test(str)) {
+        stats.numbers++;
+      } else {
+        stats.text++;
+      }
+    });
+  });
+
+  // Identify Debit/Credit: The two columns with the most numbers
+  const sortedByNumbers = Array.from(colStats.entries())
+    .sort((a, b) => b[1].numbers - a[1].numbers);
+
+  // Identify Concept: The column with the most text
+  const sortedByText = Array.from(colStats.entries())
+    .sort((a, b) => b[1].text - a[1].text);
+
+  if (sortedByNumbers.length < 2 || sortedByText.length < 1) return null;
+
+  const concept = sortedByText[0][0];
+
+  // Refined Logic:
+  // Filter numeric columns that are likely Account Codes (Left of Concept) vs Money (Right of Concept)
+  const numericColumns = sortedByNumbers.map(n => n[0]);
+
+  // Prefer money columns to be to the right of the concept
+  const candidatesRightOfConcept = numericColumns.filter(colIdx => colIdx > concept);
+
+  let debit, credit;
+
+  if (candidatesRightOfConcept.length >= 2) {
+    // Sort indices ascending (Debit usually left of Credit)
+    candidatesRightOfConcept.sort((a, b) => a - b);
+    debit = candidatesRightOfConcept[0];
+    credit = candidatesRightOfConcept[1];
+  } else {
+    // Fallback: Take top 2 numeric columns regardless of position
+    // This handles cases where Code might be alphanumeric (text) or concept is rightmost
+    const amountCols = [numericColumns[0], numericColumns[1]].sort((a, b) => a - b);
+    debit = amountCols[0];
+    credit = amountCols[1];
+  }
+
+  // Prevent Concept from being overwritten if it was mistakenly identified as numeric
+  if (debit === concept || credit === concept) {
+    // If conflict, assume standard layout A=Code, B=Concept, C=Debit, D=Credit
+    if (concept === 1) {
+      return { date: -1, debit: 2, credit: 3, concept: 1, code: 0 };
+    }
+  }
+
+  // If we found candidates
+  if (debit !== undefined && credit !== undefined && concept !== undefined) {
+    console.log('Inferred Columns:', { debit, credit, concept });
+    return { date: -1, debit, credit, concept, code: -1 };
+  }
+
+  return null;
+};
+
+/**
  * Main Logic: Block-based Parser
  */
 const processSheet = (data: any[][]): ParseResult => {
@@ -75,25 +188,42 @@ const processSheet = (data: any[][]): ParseResult => {
   let headerRowIndex = -1;
   let mapping: ColumnMapping | null = null;
 
+  // Search logic for headers
   for (let i = 0; i < Math.min(data.length, 20); i++) {
     const row = data[i];
+    if (!row) continue;
     const map = mapColumns(row);
+    // Strict Check: To minimize false positives (like identifying a data row as header),
+    // we require at least 3 standard columns to be identified.
     if (map) {
-      headerRowIndex = i;
-      mapping = map;
-      break;
+      let matchCount = 0;
+      if (map.date !== -1) matchCount++;
+      if (map.debit !== -1) matchCount++;
+      if (map.credit !== -1) matchCount++;
+      if (map.concept !== -1) matchCount++;
+
+      if (matchCount >= 3) {
+        headerRowIndex = i;
+        mapping = map;
+        break;
+      }
     }
   }
 
   if (!mapping) {
-    return {
-      success: false,
-      errors: [{ 
-        line: 0, 
-        message: 'No se identificó la estructura del Libro Diario (buscando columnas: Fecha, Concepto, Debe, Haber).', 
-        type: 'STRUCTURAL' 
-      }]
-    };
+    // Attempt fallback inference
+    mapping = inferColumns(data);
+
+    if (!mapping) {
+      return {
+        success: false,
+        errors: [{
+          line: 0,
+          message: 'No se identificó la estructura del Libro Diario. Asegúrese de tener columnas de texto y numéricas claras.',
+          type: 'STRUCTURAL'
+        }]
+      };
+    }
   }
 
   // 2. Initialize State Machine
@@ -108,7 +238,7 @@ const processSheet = (data: any[][]): ParseResult => {
   const flushBuffer = () => {
     if (state.bufferLines.length > 0 && state.currentPartidaId) {
       const fullDescription = state.bufferGlosa.join(' ').trim();
-      
+
       state.bufferLines.forEach(line => {
         entries.push({
           id: crypto.randomUUID(),
@@ -129,71 +259,103 @@ const processSheet = (data: any[][]): ParseResult => {
   };
 
   // 3. Iterate Rows
-  for (let i = headerRowIndex + 1; i < data.length; i++) {
+  // If header found, start after it. If inferred, start from 0 because there are no headers.
+  const startIndex = headerRowIndex !== -1 ? headerRowIndex + 1 : 0;
+
+  for (let i = startIndex; i < data.length; i++) {
     const row = data[i];
+    if (!row) continue;
     const lineNum = i + 1; // 1-based index
 
     // Extract raw values
-    const rawDate = row[mapping.date];
-    const rawConcept = row[mapping.concept];
-    const rawDebit = row[mapping.debit];
-    const rawCredit = row[mapping.credit];
+    const rawConcept = mapping.concept !== -1 ? row[mapping.concept] : undefined;
+    const rawDebit = mapping.debit !== -1 ? row[mapping.debit] : undefined;
+    const rawCredit = mapping.credit !== -1 ? row[mapping.credit] : undefined;
     const rawCode = mapping.code !== -1 ? row[mapping.code] : undefined;
+    const rawDate = mapping.date !== -1 ? row[mapping.date] : undefined;
 
     const conceptStr = String(rawConcept || '').trim();
-    const debitVal = typeof rawDebit === 'number' ? rawDebit : parseFloat(String(rawDebit || '0').replace(/[^0-9.-]/g, ''));
-    const creditVal = typeof rawCredit === 'number' ? rawCredit : parseFloat(String(rawCredit || '0').replace(/[^0-9.-]/g, ''));
-    
+    // Normalize amounts: remove currency symbols, spaces, keep dots and numbers/minuses
+    const parseAmount = (val: any) => {
+      if (typeof val === 'number') return val;
+      if (!val) return 0;
+      return parseFloat(String(val).replace(/[^0-9.-]/g, ''));
+    };
+
+    const debitVal = parseAmount(rawDebit);
+    const creditVal = parseAmount(rawCredit);
+
     const debit = isNaN(debitVal) ? 0 : debitVal;
     const credit = isNaN(creditVal) ? 0 : creditVal;
 
+    // Check if this row has financial data (Amount)
+    const hasAmount = Math.abs(debit) > 0.0001 || Math.abs(credit) > 0.0001;
+
     // --- DETECTOR LOGIC ---
 
-    // A. DETECT PARTIDA START (Ticket C-1, C-2)
-    // Matches "Partida 1", "Partida n", "Partida Inicial"
-    const partidaMatch = conceptStr.match(/^Partida\s+([a-zA-Z0-9]+)/i);
-    
+    // A. DETECT PARTIDA START
+    // Scan first 5 columns for "Partida/p.X" marker.
+    // The marker might be in a different column than the concept.
+    let partidaMatch: RegExpMatchArray | null = null;
+    for (let c = 0; c < Math.min(row.length, 5); c++) {
+      const cellVal = String(row[c] || '').trim();
+      // Matches "Partida 1", "Partida n", "Partida Inicial", "p.1", "P.1", "p 1"
+      const match = cellVal.match(/^(?:Partida|Asiento|p\.?)\s*([a-zA-Z0-9\.-]+)/i);
+      if (match) {
+        partidaMatch = match;
+        break;
+      }
+    }
+
     if (partidaMatch) {
       // Flush previous block
       flushBuffer();
 
       // Start new block
-      state.currentPartidaId = `Partida ${partidaMatch[1]}`; // e.g. "Partida 1"
-      
-      // Update Date if present, otherwise keep previous (though usually Partida header has date)
+      state.currentPartidaId = `Partida ${partidaMatch[1]}`;
+
+      // Update Date if present
       const rowDate = parseExcelDate(rawDate);
       if (rowDate) {
         state.currentDate = rowDate;
       }
-      
-      continue; // Done with this row
+
+      // If the header row also contains account data (hasAmount), we fall through to process it.
+      // Otherwise, we skip it to avoid adding the header text as a Glosa/Account.
+      if (!hasAmount) {
+        continue;
+      }
     }
 
-    // B. DETECT CONTROL TOTALS (Ticket C-6)
-    // If Debe == Haber and both > 0, ignore row.
-    // Also ignore if text starts with "Por" or similar summary, but exact amount match is strongest signal.
-    if (debit > 0 && credit > 0 && Math.abs(debit - credit) < 0.01) {
+    // B. DETECT CONTROL TOTALS / GLOSAS (Ticket C-6)
+    // If a row has amounts in BOTH Debit and Credit, and they are equal, it is a summary line (not an account).
+    // User Requirement: "Si tiene el mismo monto en el debe y el haber, no es cuenta".
+    if (debit > 0 && credit > 0 && Math.abs(debit - credit) < 0.1) {
       continue;
     }
 
-    // C. DETECT ACCOUNT LINE (Ticket C-3)
-    // Has Debit OR Credit (and not a total row)
-    const hasAmount = debit !== 0 || credit !== 0;
-    
+    // C. DETECT ACCOUNT LINE
+
     if (hasAmount) {
-      // Ticket C-3: Clean name ("A: Proveedores" -> "Proveedores")
       let cleanName = conceptStr.replace(/^[aA]:\s*/, '').trim();
-      
-      // Ticket C-4: Code is optional
-      let code = cleanName; // Default code is name
+      // If name is empty but has amount, might be data issue, but we'll take it if we have a code
+      // If no name and no code, skip? 
+      if (!cleanName && !rawCode) continue;
+
+      let code = cleanName;
       if (rawCode) {
         code = String(rawCode).trim();
       }
 
-      // Add to buffer
+      // ORPHAN DATA GUARD: If we find an account but haven't seen a "Partida" header yet,
+      // assume this is Partida 1.
+      if (!state.currentPartidaId) {
+        state.currentPartidaId = "Partida 1";
+      }
+
       state.bufferLines.push({
         lineNum,
-        accountName: cleanName,
+        accountName: cleanName || 'Sin Cuenta',
         accountCode: code,
         debit,
         credit
@@ -201,25 +363,22 @@ const processSheet = (data: any[][]): ParseResult => {
       continue;
     }
 
-    // D. DETECT GLOSA LINE (Ticket C-5)
-    // No amounts, has text, not a Partida header (handled in A)
-    // We also ignore empty concept lines
+    // D. DETECT GLOSA LINE
+    // No amounts, has text
     if (!hasAmount && conceptStr.length > 0) {
-      // It's part of the description
       state.bufferGlosa.push(conceptStr);
     }
   }
 
-  // End of file: flush last buffer
   flushBuffer();
 
   if (entries.length === 0) {
     return {
       success: false,
-      errors: [{ 
-        line: 0, 
-        message: 'No se encontraron asientos contables. Verifique que use "Partida X" para iniciar bloques.', 
-        type: 'FORMAT' 
+      errors: [{
+        line: 0,
+        message: 'No se encontraron asientos contables. Verifique que use "Partida X" o "p.X" para iniciar bloques.',
+        type: 'FORMAT'
       }]
     };
   }
@@ -230,33 +389,48 @@ const processSheet = (data: any[][]): ParseResult => {
 export const parseFile = async (file: File): Promise<ParseResult> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
-    
+
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        
-        // Parse to Array of Arrays (AOA) to handle structure manually (Ticket C-7)
-        const aoa = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-        
+
+        // Parse to Array of Arrays (AOA)
+        let aoa = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
         if (!aoa || aoa.length === 0) {
-           resolve({ 
-             success: false, 
-             errors: [{ line: 0, message: 'El archivo está vacío.', type: 'STRUCTURAL' }] 
-           });
-           return;
+          resolve({
+            success: false,
+            errors: [{ line: 0, message: 'El archivo está vacío.', type: 'STRUCTURAL' }]
+          });
+          return;
+        }
+
+        // Pre-process: Strip leading empty rows (Ticket: "start reading from where letters begin")
+        aoa = trimEmptyRows(aoa);
+
+        if (aoa.length === 0) {
+          resolve({
+            success: false,
+            errors: [{ line: 0, message: 'El archivo no contiene datos legibles.', type: 'STRUCTURAL' }]
+          });
+          return;
         }
 
         const result = processSheet(aoa);
         resolve(result);
 
-      } catch (error) {
+      } catch (error: any) {
         console.error(error);
         resolve({
           success: false,
-          errors: [{ line: 0, message: 'Error crítico al leer el archivo Excel/CSV.', type: 'FORMAT' }]
+          errors: [{
+            line: 0,
+            message: `Error crítico al leer el archivo: ${error instanceof Error ? error.message : String(error)}`,
+            type: 'FORMAT'
+          }]
         });
       }
     };
