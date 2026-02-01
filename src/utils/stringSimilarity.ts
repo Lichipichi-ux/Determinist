@@ -1,4 +1,74 @@
 /**
+ * Critical accounting keywords that must match exactly.
+ * If two account names differ in any of these keywords, they should NOT be considered similar.
+ */
+const CRITICAL_KEYWORDS = [
+    // Payment/Credit status - mutually exclusive
+    ['ACREDITAR', 'PAGAR', 'COBRAR', 'PAGADO', 'COBRADO', 'PAGADA', 'COBRADA'],
+
+    // Transaction types - mutually exclusive
+    ['COMPRAS', 'VENTAS', 'RENTA', 'HONORARIOS', 'SERVICIOS'],
+
+    // Account nature - mutually exclusive
+    ['ACTIVO', 'PASIVO', 'CAPITAL', 'INGRESO', 'EGRESO', 'GASTO'],
+
+    // Time status - mutually exclusive
+    ['ANTICIPADO', 'ANTICIPADA', 'DIFERIDO', 'DIFERIDA', 'CORRIENTE', 'LARGO PLAZO'],
+];
+
+/**
+ * Extracts critical keywords from an account name.
+ */
+const extractCriticalKeywords = (accountName: string): Set<string> => {
+    const normalized = accountName.trim().toUpperCase();
+    const found = new Set<string>();
+
+    CRITICAL_KEYWORDS.forEach(group => {
+        group.forEach(keyword => {
+            // Use word boundary matching to avoid partial matches
+            const regex = new RegExp(`\\b${keyword}\\b`);
+            if (regex.test(normalized)) {
+                found.add(keyword);
+            }
+        });
+    });
+
+    return found;
+};
+
+/**
+ * Checks if two account names have conflicting critical keywords.
+ * Returns true if they have different keywords from the same category.
+ */
+const hasKeywordConflict = (a: string, b: string): boolean => {
+    const keywordsA = extractCriticalKeywords(a);
+    const keywordsB = extractCriticalKeywords(b);
+
+    // Check each keyword group for conflicts
+    for (const group of CRITICAL_KEYWORDS) {
+        const foundInA = group.filter(kw => keywordsA.has(kw));
+        const foundInB = group.filter(kw => keywordsB.has(kw));
+
+        // If both have keywords from this group, they must match
+        if (foundInA.length > 0 && foundInB.length > 0) {
+            // Check if they're different
+            const setA = new Set(foundInA);
+            const setB = new Set(foundInB);
+
+            // If the sets don't match, there's a conflict
+            const hasConflict = foundInA.some(kw => !setB.has(kw)) ||
+                foundInB.some(kw => !setA.has(kw));
+
+            if (hasConflict) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+};
+
+/**
  * Calculates the Levenshtein distance between two strings.
  * This is the minimum number of single-character edits (insertions, deletions, or substitutions)
  * required to change one word into the other.
@@ -48,6 +118,12 @@ export const areStringsSimilar = (a: string, b: string, threshold = 0.75): boole
     const strB = b.trim().toUpperCase();
 
     if (strA === strB) return true;
+
+    // CRITICAL: Check for keyword conflicts FIRST
+    // If accounts differ in critical keywords (e.g., "ACREDITAR" vs "PAGAR"), they are NOT similar
+    if (hasKeywordConflict(strA, strB)) {
+        return false;
+    }
 
     const longer = strA.length > strB.length ? strA : strB;
     const shorter = strA.length > strB.length ? strB : strA;
