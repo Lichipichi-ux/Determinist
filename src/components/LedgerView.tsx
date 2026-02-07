@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { AccountLedger } from '../types';
 import { CURRENCY_FORMAT } from '../utils/constants';
 import { Search, Filter, Download, ArrowRightCircle, X, Table, LayoutList } from 'lucide-react';
@@ -8,9 +8,77 @@ import RecapitulationView from './RecapitulationView';
 interface LedgerViewProps {
   ledgerData: Record<string, AccountLedger>;
   fileName: string;
+  onUpdateEntry: (accountCode: string, entryId: string, field: 'debit' | 'credit', newValue: number) => void;
 }
 
-const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName }) => {
+const EditableCell: React.FC<{
+  value: number;
+  onSave: (newValue: number) => void;
+  currencyFormat: Intl.NumberFormat;
+}> = ({ value, onSave, currencyFormat }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempValue, setTempValue] = useState(value.toString());
+
+  useEffect(() => {
+    setTempValue(value.toString());
+  }, [value]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      setIsEditing(false);
+      const parsed = parseFloat(tempValue);
+      if (!isNaN(parsed)) {
+        onSave(parsed);
+      } else {
+        setTempValue(value.toString()); // Revert if invalid
+      }
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setTempValue(value.toString());
+    }
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    const parsed = parseFloat(tempValue);
+    if (!isNaN(parsed)) {
+      onSave(parsed);
+    } else {
+      setTempValue(value.toString());
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <input
+        autoFocus
+        type="number"
+        step="0.01"
+        value={tempValue}
+        onChange={(e) => setTempValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        className="w-full text-right font-mono text-xs bg-white dark:bg-obsidian border border-denim outline-none p-1 rounded-sm"
+        onClick={(e) => e.stopPropagation()}
+      />
+    );
+  }
+
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsEditing(true);
+      }}
+      className="cursor-pointer hover:bg-denim/10 transition-colors rounded-sm px-1 -mx-1 py-0.5"
+      title="Click to edit"
+    >
+      {value > 0 ? currencyFormat.format(value) : '-'}
+    </div>
+  );
+};
+
+const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateEntry }) => {
   const [selectedAccountCode, setSelectedAccountCode] = useState<string>('');
   const [filterText, setFilterText] = useState('');
   const [sortMode, setSortMode] = useState<'ALPHA' | 'BOOK'>('BOOK');
@@ -220,10 +288,18 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName }) => {
                             {entry.description}
                           </td>
                           <td className="px-4 py-2 text-right font-mono text-obsidian/70 dark:text-seashell/70">
-                            {entry.debit > 0 ? CURRENCY_FORMAT.format(entry.debit) : ''}
+                            <EditableCell
+                              value={entry.debit}
+                              currencyFormat={CURRENCY_FORMAT}
+                              onSave={(val) => onUpdateEntry(currentAccount.accountCode, entry.id, 'debit', val)}
+                            />
                           </td>
                           <td className="px-4 py-2 text-right font-mono text-obsidian/70 dark:text-seashell/70">
-                            {entry.credit > 0 ? CURRENCY_FORMAT.format(entry.credit) : ''}
+                            <EditableCell
+                              value={entry.credit}
+                              currencyFormat={CURRENCY_FORMAT}
+                              onSave={(val) => onUpdateEntry(currentAccount.accountCode, entry.id, 'credit', val)}
+                            />
                           </td>
                           <td className={`px-4 py-2 text-right font-mono font-bold border-l border-obsidian/5 dark:border-white/5 ${entry.runningBalance < 0 ? 'text-red-600 bg-red-50 dark:bg-red-900/10' : 'text-obsidian dark:text-seashell bg-obsidian/5 dark:bg-white/5'}`}>
                             {CURRENCY_FORMAT.format(entry.runningBalance)}

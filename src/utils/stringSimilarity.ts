@@ -20,6 +20,44 @@ const CRITICAL_KEYWORDS = [
 ];
 
 /**
+ * Titles that precede proper names (surnames, company names, etc.)
+ * Used to extract and compare proper names in account descriptions.
+ */
+const PROPER_NAME_TITLES = [
+    'SEÑOR', 'SEÑORA', 'SR', 'SRA', 'SRTA', 'SEÑORITA',
+    'DON', 'DOÑA', 'DR', 'DRA', 'DOCTOR', 'DOCTORA',
+    'ING', 'INGENIERO', 'INGENIERA', 'LIC', 'LICENCIADO', 'LICENCIADA',
+    'EMPRESA', 'COMPAÑÍA', 'SOCIEDAD', 'S.A.', 'S.R.L.', 'LTDA',
+    'SOCIO', 'SOCIA', 'ACCIONISTA', 'PROPIETARIO', 'PROPIETARIA'
+];
+
+/**
+ * Extracts proper names (surnames, company names) from an account name.
+ * Looks for words that follow titles like "Señor", "Empresa", etc.
+ */
+const extractProperNames = (accountName: string): Set<string> => {
+    const normalized = accountName.trim().toUpperCase();
+    const properNames = new Set<string>();
+
+    // For each title, find what comes after it
+    PROPER_NAME_TITLES.forEach(title => {
+        // Match the title followed by one or more capitalized words
+        const regex = new RegExp(`\\b${title}\\s+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ]+(?:\\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ]+)*)`, 'g');
+        let match;
+
+        while ((match = regex.exec(normalized)) !== null) {
+            // Extract the proper name (group 1)
+            const properName = match[1].trim();
+            if (properName) {
+                properNames.add(properName);
+            }
+        }
+    });
+
+    return properNames;
+};
+
+/**
  * Extracts critical keywords from an account name.
  */
 const extractCriticalKeywords = (accountName: string): Set<string> => {
@@ -122,7 +160,24 @@ export const areStringsSimilar = (a: string, b: string, threshold = 0.75): boole
 
     if (strA === strB) return true;
 
-    // CRITICAL: Check for keyword conflicts FIRST
+    // CRITICAL: Check for proper name conflicts FIRST
+    // If accounts have different proper names (e.g., "Señor Moscoso" vs "Señor Morataya"), they are NOT similar
+    const properNamesA = extractProperNames(strA);
+    const properNamesB = extractProperNames(strB);
+
+    // If both have proper names, they must match exactly
+    if (properNamesA.size > 0 && properNamesB.size > 0) {
+        // Check if the sets are different
+        const hasConflict =
+            Array.from(properNamesA).some(name => !properNamesB.has(name)) ||
+            Array.from(properNamesB).some(name => !properNamesA.has(name));
+
+        if (hasConflict) {
+            return false; // Different proper names = different accounts
+        }
+    }
+
+    // CRITICAL: Check for keyword conflicts
     // If accounts differ in critical keywords (e.g., "ACREDITAR" vs "PAGAR"), they are NOT similar
     if (hasKeywordConflict(strA, strB)) {
         return false;

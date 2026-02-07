@@ -55,6 +55,55 @@ const App: React.FC = () => {
     setErrors([]);
   };
 
+  const handleUpdateEntry = (accountCode: string, entryId: string, field: 'debit' | 'credit', newValue: number) => {
+    setLedgerData(prevData => {
+      const newData = { ...prevData };
+      const account = newData[accountCode];
+
+      if (!account) return prevData;
+
+      // Create a new array for entries to ensure immutability
+      const newEntries = [...account.entries];
+      const entryIndex = newEntries.findIndex(e => e.id === entryId);
+
+      if (entryIndex === -1) return prevData;
+
+      // Update the specific entry
+      const entry = { ...newEntries[entryIndex] };
+
+      // Calculate the difference to update running balances efficiently
+      // or just recalculate everything from this point onwards.
+      // Recalculating from this point is safer.
+
+      if (field === 'debit') {
+        entry.debit = newValue;
+      } else {
+        entry.credit = newValue;
+      }
+
+      newEntries[entryIndex] = entry;
+
+      // Recalculate running balances from the modified entry onwards
+      let runningBalance = entryIndex > 0 ? newEntries[entryIndex - 1].runningBalance : 0;
+
+      for (let i = entryIndex; i < newEntries.length; i++) {
+        const e = newEntries[i];
+        runningBalance = runningBalance + e.debit - e.credit;
+        newEntries[i] = { ...e, runningBalance };
+      }
+
+      // Update account final balance
+      const newAccount = {
+        ...account,
+        entries: newEntries,
+        finalBalance: runningBalance
+      };
+
+      newData[accountCode] = newAccount;
+      return newData;
+    });
+  };
+
   return (
     <div className="h-screen bg-seashell dark:bg-[#1a1a1a] text-obsidian dark:text-seashell font-sans transition-colors duration-300 selection:bg-denim selection:text-white flex flex-col overflow-hidden">
       {/* Enterprise Navbar - Updated for transparency and clean theme compatibility */}
@@ -190,7 +239,11 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex-1 overflow-hidden h-full">
-                  <LedgerView ledgerData={ledgerData} fileName={currentFileName} />
+                  <LedgerView
+                    ledgerData={ledgerData}
+                    fileName={currentFileName}
+                    onUpdateEntry={handleUpdateEntry}
+                  />
                 </div>
               </div>
             )}
