@@ -106,37 +106,39 @@ const App: React.FC = () => {
 
   return (
     <div className="h-screen bg-seashell dark:bg-[#1a1a1a] text-obsidian dark:text-seashell font-sans transition-colors duration-300 selection:bg-denim selection:text-white flex flex-col overflow-hidden">
-      {/* Enterprise Navbar - Updated for transparency and clean theme compatibility */}
-      <nav className="bg-white/80 dark:bg-obsidian/80 backdrop-blur-md text-obsidian dark:text-seashell z-50 h-14 shrink-0 border-b border-obsidian/10 dark:border-white/10">
-        <div className="w-full h-full px-4 flex items-center justify-between">
+      {/* Enterprise Navbar - Mobile responsive */}
+      <nav className="bg-white/80 dark:bg-obsidian/80 backdrop-blur-md text-obsidian dark:text-seashell z-50 h-12 md:h-14 shrink-0 border-b border-obsidian/10 dark:border-white/10">
+        <div className="w-full h-full px-2 md:px-4 flex items-center justify-between">
 
           {/* Left: Branding & Module Navigation */}
-          <div className="flex items-center h-full">
-            <div className="flex items-center gap-2 pr-6 border-r border-obsidian/10 dark:border-white/10 h-full">
-              <div className="bg-denim p-1 rounded-sm">
-                <BookOpen className="w-5 h-5 text-white" />
+          <div className="flex items-center h-full gap-2 md:gap-0">
+            <div className="flex items-center gap-1 md:gap-2 pr-2 md:pr-6 border-r border-obsidian/10 dark:border-white/10 h-full">
+              <div className="bg-denim p-0.5 md:p-1 rounded-sm">
+                <BookOpen className="w-4 h-4 md:w-5 md:h-5 text-white" />
               </div>
-              <span className="text-lg font-bold tracking-tight text-obsidian dark:text-white uppercase">Determinist</span>
+              <span className="text-sm md:text-lg font-bold tracking-tight text-obsidian dark:text-white uppercase hidden sm:inline">Determinist</span>
             </div>
 
-            {/* Module Switcher */}
+            {/* Module Switcher - Responsive */}
             <div className="flex items-center h-full gap-0 pl-0 text-sm">
               <button
                 onClick={() => setActiveModule('LEDGER')}
-                className={`flex items-center gap-2 px-6 h-full border-b-2 transition-all relative
+                className={`flex items-center gap-1 md:gap-2 px-2 md:px-6 h-full border-b-2 transition-all relative
                   ${activeModule === 'LEDGER' ? 'border-denim text-denim bg-denim/5' : 'border-transparent text-obsidian/60 dark:text-seashell/60 hover:text-denim hover:bg-denim/5'}`}
               >
-                <Database className="w-3.5 h-3.5" />
-                <span className="font-bold uppercase text-[10px] tracking-widest">Generador Ledger</span>
+                <Database className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                <span className="font-bold uppercase text-[8px] md:text-[10px] tracking-widest hidden sm:inline">Generador Ledger</span>
+                <span className="font-bold uppercase text-[8px] tracking-widest sm:hidden">Ledger</span>
               </button>
 
               <button
                 onClick={() => setActiveModule('CHART')}
-                className={`flex items-center gap-2 px-6 h-full border-b-2 transition-all relative
+                className={`flex items-center gap-1 md:gap-2 px-2 md:px-6 h-full border-b-2 transition-all relative
                   ${activeModule === 'CHART' ? 'border-denim text-denim bg-denim/5' : 'border-transparent text-obsidian/60 dark:text-seashell/60 hover:text-denim hover:bg-denim/5'}`}
               >
-                <Settings2 className="w-3.5 h-3.5" />
-                <span className="font-bold uppercase text-[10px] tracking-widest">Chart Selector</span>
+                <Settings2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                <span className="font-bold uppercase text-[8px] md:text-[10px] tracking-widest hidden sm:inline">Chart Selector</span>
+                <span className="font-bold uppercase text-[8px] tracking-widest sm:hidden">Chart</span>
               </button>
 
 
@@ -144,20 +146,20 @@ const App: React.FC = () => {
           </div>
 
           {/* Right: Tools Only */}
-          <div className="flex items-center h-full gap-2">
+          <div className="flex items-center h-full gap-1 md:gap-2">
             {activeModule === 'LEDGER' && viewState === 'VIEW' && (
               <button
                 onClick={resetApp}
-                className="flex items-center gap-2 px-3 py-1.5 bg-denim hover:bg-denim/90 text-white text-xs font-semibold uppercase tracking-wide rounded-sm transition-all shadow-sm"
+                className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 bg-denim hover:bg-denim/90 text-white text-[9px] md:text-xs font-semibold uppercase tracking-wide rounded-sm transition-all shadow-sm min-h-[36px] md:min-h-0"
               >
-                <RefreshCcw className="w-3.5 h-3.5" />
-                <span>Reiniciar</span>
+                <RefreshCcw className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                <span className="hidden sm:inline">Reiniciar</span>
               </button>
             )}
 
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-sm hover:bg-obsidian/5 dark:hover:bg-white/10 text-obsidian/70 dark:text-seashell/70 hover:text-denim transition-colors"
+              className="p-1.5 md:p-2 rounded-sm hover:bg-obsidian/5 dark:hover:bg-white/10 text-obsidian/70 dark:text-seashell/70 hover:text-denim transition-colors min-w-[36px] min-h-[36px] md:min-w-0 md:min-h-0 flex items-center justify-center"
               title={isDarkMode ? "Modo Claro" : "Modo Oscuro"}
             >
               {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -166,8 +168,8 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col max-w-[1920px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 overflow-hidden">
+      {/* Main Content Area - Responsive padding */}
+      <main className="flex-1 flex flex-col max-w-[1920px] mx-auto w-full px-2 sm:px-4 lg:px-8 py-3 md:py-6 overflow-hidden">
 
         {/* Module Content Transitions */}
         {activeModule === 'CHART' ? (
@@ -251,16 +253,16 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white/50 dark:bg-obsidian/50 backdrop-blur-sm border-t border-obsidian/10 dark:border-white/10 py-1 px-4 text-[9px] text-obsidian/30 dark:text-seashell/30 flex justify-between items-center shrink-0">
-        <div className="flex items-center gap-4">
+      {/* Footer - Mobile responsive */}
+      <footer className="bg-white/50 dark:bg-obsidian/50 backdrop-blur-sm border-t border-obsidian/10 dark:border-white/10 py-1 px-2 md:px-4 text-[8px] md:text-[9px] text-obsidian/30 dark:text-seashell/30 flex flex-col md:flex-row justify-between items-center gap-1 md:gap-0 shrink-0">
+        <div className="flex items-center gap-2 md:gap-4">
           <span className="font-bold uppercase tracking-widest">Determinist Ledger Solutions</span>
-          <span className="w-px h-3 bg-obsidian/10 dark:bg-white/10"></span>
+          <span className="w-px h-3 bg-obsidian/10 dark:bg-white/10 hidden md:inline"></span>
           <span className="uppercase tracking-widest text-denim font-bold">MODE: {activeModule === 'LEDGER' ? 'GENERATION' : 'COMPILATION'}</span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="opacity-40">Guatemala Accounting Standards Compliance</span>
-          <span className="w-px h-3 bg-obsidian/10 dark:bg-white/10"></span>
+        <div className="flex items-center gap-2 md:gap-3">
+          <span className="opacity-40 hidden md:inline">Guatemala Accounting Standards Compliance</span>
+          <span className="w-px h-3 bg-obsidian/10 dark:bg-white/10 hidden md:inline"></span>
           <span>&copy; {new Date().getFullYear()} Determinist Enterprise</span>
         </div>
       </footer>

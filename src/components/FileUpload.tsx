@@ -23,11 +23,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded }) => {
 
   const processFile = async (file: File) => {
     setIsProcessing(true);
-    
+
     // Ticket 0.1: Validate extension
     const validExtensions = ['.xlsx', '.csv'];
     const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-    
+
     if (!validExtensions.includes(extension)) {
       onDataLoaded({
         success: false,
@@ -39,7 +39,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded }) => {
 
     // Call Parser Service
     const result = await parseFile(file);
-    
+
     // Simulate a small delay for better UX (perception of processing)
     setTimeout(() => {
       onDataLoaded(result, file.name);
@@ -51,7 +51,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded }) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       processFile(e.dataTransfer.files[0]);
     }
@@ -73,8 +73,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded }) => {
         onDrop={handleDrop}
         className={`
           relative border-2 border-dashed rounded-sm p-12 text-center transition-all duration-200
-          ${isDragging 
-            ? 'border-denim bg-denim/5' 
+          ${isDragging
+            ? 'border-denim bg-denim/5'
             : 'border-obsidian/20 dark:border-white/20 hover:border-denim hover:bg-obsidian/5 dark:hover:bg-white/5'
           }
           ${isProcessing ? 'opacity-50 pointer-events-none' : ''}
@@ -88,16 +88,16 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded }) => {
           onChange={handleInputChange}
           disabled={isProcessing}
         />
-        
+
         <div className="flex flex-col items-center justify-center space-y-6">
           <div className={`p-4 rounded-full transition-colors ${isDragging ? 'bg-denim/20' : 'bg-seashell dark:bg-white/5'}`}>
             {isProcessing ? (
-               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-denim"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-denim"></div>
             ) : (
-               <Upload className={`w-10 h-10 ${isDragging ? 'text-denim' : 'text-obsidian/40 dark:text-seashell/40'}`} strokeWidth={1.5} />
+              <Upload className={`w-10 h-10 ${isDragging ? 'text-denim' : 'text-obsidian/40 dark:text-seashell/40'}`} strokeWidth={1.5} />
             )}
           </div>
-          
+
           <div>
             <h3 className="text-lg font-bold text-obsidian dark:text-seashell uppercase tracking-tight">
               {isProcessing ? 'Analizando Estructura...' : 'Arrastre archivo aquí'}
