@@ -14,6 +14,9 @@ const CRITICAL_KEYWORDS = [
 
     // Time status - mutually exclusive
     ['ANTICIPADO', 'ANTICIPADA', 'DIFERIDO', 'DIFERIDA', 'CORRIENTE', 'LARGO PLAZO'],
+
+    // Tax and contribution types - mutually exclusive
+    ['IGSS', 'IVA', 'ISR', 'IUSI', 'ISO'],
 ];
 
 /**
