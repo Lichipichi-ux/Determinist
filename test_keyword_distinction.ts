@@ -74,8 +74,17 @@ console.log(`  "${test8a}"`);
 console.log(`  "${test8b}"`);
 console.log(`  Result: ${result8} (Expected: false) ${result8 === false ? '✅ PASS' : '❌ FAIL'}\n`);
 
+// TEST 9: Corto plazo vs largo plazo - should be FALSE
+const test9a = 'Hipotecas a Corto plazo';
+const test9b = 'Hipotecas a largo plazo';
+const result9 = areStringsSimilar(test9a, test9b);
+console.log(`TEST 9: Different time periods (Corto plazo vs largo plazo)`);
+console.log(`  "${test9a}"`);
+console.log(`  "${test9b}"`);
+console.log(`  Result: ${result9} (Expected: false) ${result9 === false ? '✅ PASS' : '❌ FAIL'}\n`);
+
 // Summary
-const allPassed = !result1 && result2 && !result3 && result4 && !result5 && !result6 && !result7 && !result8;
+const allPassed = !result1 && result2 && !result3 && result4 && !result5 && !result6 && !result7 && !result8 && !result9;
 console.log('===========================================');
 console.log(`Overall: ${allPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'}`);
 console.log('===========================================');

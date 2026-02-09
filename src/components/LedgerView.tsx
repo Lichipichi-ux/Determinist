@@ -78,6 +78,133 @@ const EditableCell: React.FC<{
   );
 };
 
+const AccountListItem = React.memo(({
+  acc,
+  isSelected,
+  isExpanded,
+  onSelect,
+  toggleExpand,
+  index
+}: {
+  acc: AccountLedger;
+  isSelected: boolean;
+  isExpanded: boolean;
+  onSelect: () => void;
+  toggleExpand: (e: React.MouseEvent) => void;
+  index: number;
+}) => {
+  // Calculate Debe, Haber for the account
+  const totalDebe = useMemo(() => acc.entries.reduce((sum, e) => sum + e.debit, 0), [acc.entries]);
+  const totalHaber = useMemo(() => acc.entries.reduce((sum, e) => sum + e.credit, 0), [acc.entries]);
+
+  return (
+    <div className="md:border-b md:border-obsidian/5 md:dark:border-white/5 relative">
+      {/* Cardinal Number (Tiny) - Positioning it absolutely in the top-left or integrated nicely */}
+      <div className={`
+         absolute top-2 left-2 z-10 text-[9px] font-mono leading-none pointer-events-none select-none
+         ${isSelected ? 'text-denim/50' : 'text-obsidian/20 dark:text-seashell/20'}
+       `}>
+        {index + 1}
+      </div>
+
+      {/* Luxury Card (Mobile) / List Item (Desktop) */}
+      <button
+        onClick={onSelect}
+        className={`
+          w-full text-left transition-all duration-200 flex flex-col group relative
+          
+          /* Mobile: Luxury Card */
+          md:rounded-none rounded-xl
+          md:shadow-none shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)]
+          md:border-0 border border-obsidian/10 dark:border-white/10
+          md:px-4 md:py-2.5 p-4 pt-5
+          md:min-h-0 min-h-[72px]
+          
+          /* Hover & Active States - "Agile" feel */
+          active:scale-[0.98]
+          hover:scale-[1.01] md:hover:scale-100
+          md:hover:bg-white md:dark:hover:bg-white/5
+          hover:bg-gradient-to-r hover:from-white hover:to-seashell/20
+          dark:hover:from-obsidian dark:hover:to-white/5
+          
+          /* Selection state */
+          ${isSelected
+            ? 'md:bg-white md:dark:bg-obsidian bg-gradient-to-r from-denim/5 to-denim/10 md:border-l-[3px] md:border-l-denim md:shadow-sm shadow-md border-denim/30 dark:border-denim/50'
+            : 'md:bg-transparent bg-white dark:bg-obsidian/50 md:border-l-[3px] md:border-l-transparent'
+          }
+        `}
+      >
+        {/* Main Content Row */}
+        <div className="flex justify-between items-start gap-3 pl-2"> {/* Added pl-2 to make space for the number if needed, or just let it float */}
+          {/* Left: Code & Name */}
+          <div className="flex-1 overflow-hidden">
+            <div className={`
+              font-mono text-[10px] uppercase tracking-wider mb-1
+              ${isSelected ? 'text-denim font-bold' : 'text-obsidian/50 dark:text-seashell/50'}
+            `}>
+              {acc.accountCode}
+            </div>
+            <div className={`
+              text-sm md:text-xs truncate leading-tight
+              ${isSelected ? 'text-obsidian dark:text-seashell font-bold' : 'text-obsidian/80 dark:text-seashell/80 font-medium'}
+            `}>
+              {acc.accountName}
+            </div>
+          </div>
+
+          {/* Right: Balance */}
+          <div className="flex flex-col items-end gap-1">
+            <div className={`
+              text-sm md:text-[10px] font-mono font-bold whitespace-nowrap
+              ${acc.finalBalance < 0 ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'}
+            `}>
+              {CURRENCY_FORMAT.format(acc.finalBalance)}
+            </div>
+
+            {/* Expand indicator (mobile only) */}
+            <div
+              className="md:hidden p-1 -m-1"
+              onClick={toggleExpand}
+            >
+              <ChevronDown
+                className={`w-4 h-4 text-obsidian/30 dark:text-seashell/30 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Expandable Details (Mobile Only) */}
+        <div className={`
+          md:hidden overflow-hidden transition-all duration-300 ease-in-out
+          ${isExpanded ? 'max-h-32 opacity-100 mt-4' : 'max-h-0 opacity-0 mt-0'}
+        `}>
+          <div className="pt-3 border-t border-obsidian/10 dark:border-white/10 grid grid-cols-2 gap-3">
+            {/* Debe */}
+            <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/10 rounded-lg p-3 border border-slate-200/50 dark:border-white/10">
+              <div className="text-[9px] uppercase tracking-widest text-obsidian/40 dark:text-seashell/40 font-bold mb-1">
+                Debe
+              </div>
+              <div className="text-sm font-mono font-bold text-obsidian dark:text-seashell">
+                {CURRENCY_FORMAT.format(totalDebe)}
+              </div>
+            </div>
+
+            {/* Haber */}
+            <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/10 rounded-lg p-3 border border-slate-200/50 dark:border-white/10">
+              <div className="text-[9px] uppercase tracking-widest text-obsidian/40 dark:text-seashell/40 font-bold mb-1">
+                Haber
+              </div>
+              <div className="text-sm font-mono font-bold text-obsidian dark:text-seashell">
+                {CURRENCY_FORMAT.format(totalHaber)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+});
+
 const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateEntry }) => {
   const [selectedAccountCode, setSelectedAccountCode] = useState<string | null>(null);
   const [expandedAccountCode, setExpandedAccountCode] = useState<string | null>(null);
@@ -197,118 +324,29 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
             )}
           </div>
         </div>
+
         <div className="flex-1 overflow-y-auto min-h-0 p-2 md:p-0 space-y-2 md:space-y-0">
-          {filteredAccounts.map((acc) => {
-            const isSelected = selectedAccountCode === acc.accountCode;
-            const isExpanded = expandedAccountCode === acc.accountCode;
-
-            // Calculate Debe, Haber for the account
-            const totalDebe = acc.entries.reduce((sum, e) => sum + e.debit, 0);
-            const totalHaber = acc.entries.reduce((sum, e) => sum + e.credit, 0);
-
-            return (
-              <div
-                key={acc.accountCode}
-                className="md:border-b md:border-obsidian/5 md:dark:border-white/5"
-              >
-                {/* Luxury Card (Mobile) / List Item (Desktop) */}
-                <button
-                  onClick={() => {
-                    setSelectedAccountCode(acc.accountCode);
-                    // Toggle expansion on mobile only
-                    if (window.innerWidth < 768) {
-                      setExpandedAccountCode(isExpanded ? null : acc.accountCode);
-                    }
-                  }}
-                  className={`
-                    w-full text-left transition-all duration-300 flex flex-col group
-                    
-                    /* Mobile: Luxury Card */
-                    md:rounded-none rounded-xl
-                    md:shadow-none shadow-sm hover:shadow-md
-                    md:border-0 border border-obsidian/10 dark:border-white/10
-                    md:px-4 md:py-2.5 p-4
-                    md:min-h-0 min-h-[72px]
-                    md:hover:bg-white md:dark:hover:bg-white/5
-                    hover:bg-gradient-to-r hover:from-white hover:to-seashell/30
-                    dark:hover:from-obsidian dark:hover:to-white/5
-                    md:hover:scale-100 hover:scale-[1.02]
-                    md:active:scale-100 active:scale-[0.98]
-                    
-                    /* Selection state */
-                    ${isSelected
-                      ? 'md:bg-white md:dark:bg-obsidian bg-gradient-to-r from-denim/5 to-denim/10 md:border-l-[3px] md:border-l-denim md:shadow-sm shadow-lg border-denim/30 dark:border-denim/50'
-                      : 'md:bg-transparent bg-white dark:bg-obsidian/50 md:border-l-[3px] md:border-l-transparent'
-                    }
-                  `}
-                >
-                  {/* Main Content Row */}
-                  <div className="flex justify-between items-start gap-3">
-                    {/* Left: Code & Name */}
-                    <div className="flex-1 overflow-hidden">
-                      <div className={`
-                        font-mono text-[10px] uppercase tracking-wider mb-1
-                        ${isSelected ? 'text-denim font-bold' : 'text-obsidian/50 dark:text-seashell/50'}
-                      `}>
-                        {acc.accountCode}
-                      </div>
-                      <div className={`
-                        text-sm md:text-xs truncate leading-tight
-                        ${isSelected ? 'text-obsidian dark:text-seashell font-bold' : 'text-obsidian/80 dark:text-seashell/80 font-medium'}
-                      `}>
-                        {acc.accountName}
-                      </div>
-                    </div>
-
-                    {/* Right: Balance */}
-                    <div className="flex flex-col items-end gap-1">
-                      <div className={`
-                        text-sm md:text-[10px] font-mono font-bold whitespace-nowrap
-                        ${acc.finalBalance < 0 ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'}
-                      `}>
-                        {CURRENCY_FORMAT.format(acc.finalBalance)}
-                      </div>
-
-                      {/* Expand indicator (mobile only) */}
-                      <div className="md:hidden">
-                        <ChevronDown
-                          className={`w-4 h-4 text-obsidian/30 dark:text-seashell/30 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Expandable Details (Mobile Only) */}
-                  <div className={`
-                    md:hidden overflow-hidden transition-all duration-300 ease-in-out
-                    ${isExpanded ? 'max-h-32 opacity-100 mt-4' : 'max-h-0 opacity-0 mt-0'}
-                  `}>
-                    <div className="pt-3 border-t border-obsidian/10 dark:border-white/10 grid grid-cols-2 gap-3">
-                      {/* Debe */}
-                      <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/10 rounded-lg p-3 border border-slate-200/50 dark:border-white/10">
-                        <div className="text-[9px] uppercase tracking-widest text-obsidian/40 dark:text-seashell/40 font-bold mb-1">
-                          Debe
-                        </div>
-                        <div className="text-sm font-mono font-bold text-obsidian dark:text-seashell">
-                          {CURRENCY_FORMAT.format(totalDebe)}
-                        </div>
-                      </div>
-
-                      {/* Haber */}
-                      <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/10 rounded-lg p-3 border border-slate-200/50 dark:border-white/10">
-                        <div className="text-[9px] uppercase tracking-widest text-obsidian/40 dark:text-seashell/40 font-bold mb-1">
-                          Haber
-                        </div>
-                        <div className="text-sm font-mono font-bold text-obsidian dark:text-seashell">
-                          {CURRENCY_FORMAT.format(totalHaber)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              </div>
-            );
-          })}
+          {filteredAccounts.map((acc, index) => (
+            <AccountListItem
+              key={acc.accountCode}
+              acc={acc}
+              index={index}
+              isSelected={selectedAccountCode === acc.accountCode}
+              isExpanded={expandedAccountCode === acc.accountCode}
+              onSelect={() => {
+                setSelectedAccountCode(acc.accountCode);
+                if (window.innerWidth < 768) {
+                  setExpandedAccountCode(expandedAccountCode === acc.accountCode ? null : acc.accountCode);
+                }
+              }}
+              toggleExpand={(e) => {
+                e.stopPropagation();
+                if (window.innerWidth < 768) {
+                  setExpandedAccountCode(expandedAccountCode === acc.accountCode ? null : acc.accountCode);
+                }
+              }}
+            />
+          ))}
         </div>
       </div>
 
@@ -450,8 +488,8 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
 
                           {/* Saldo */}
                           <div className={`bg-gradient-to-br rounded-lg p-2.5 border ${entry.runningBalance < 0
-                              ? 'from-red-50 to-red-100/50 dark:from-red-900/10 dark:to-red-800/10 border-red-200/50 dark:border-red-700/30'
-                              : 'from-emerald-50 to-emerald-100/50 dark:from-emerald-900/10 dark:to-emerald-800/10 border-emerald-200/50 dark:border-emerald-700/30'
+                            ? 'from-red-50 to-red-100/50 dark:from-red-900/10 dark:to-red-800/10 border-red-200/50 dark:border-red-700/30'
+                            : 'from-emerald-50 to-emerald-100/50 dark:from-emerald-900/10 dark:to-emerald-800/10 border-emerald-200/50 dark:border-emerald-700/30'
                             }`}>
                             <div className={`text-[8px] uppercase tracking-widest font-bold mb-1 ${entry.runningBalance < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
                               }`}>

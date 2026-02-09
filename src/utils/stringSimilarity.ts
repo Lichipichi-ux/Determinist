@@ -13,7 +13,7 @@ const CRITICAL_KEYWORDS = [
     ['ACTIVO', 'PASIVO', 'CAPITAL', 'INGRESO', 'EGRESO', 'GASTO'],
 
     // Time status - mutually exclusive
-    ['ANTICIPADO', 'ANTICIPADA', 'DIFERIDO', 'DIFERIDA', 'CORRIENTE', 'LARGO PLAZO'],
+    ['ANTICIPADO', 'ANTICIPADA', 'DIFERIDO', 'DIFERIDA', 'CORRIENTE', 'CORTO PLAZO', 'LARGO PLAZO'],
 
     // Tax and contribution types - mutually exclusive
     ['IGSS', 'IVA', 'ISR', 'IUSI', 'ISO'],
