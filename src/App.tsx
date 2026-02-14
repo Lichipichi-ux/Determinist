@@ -104,6 +104,111 @@ const App: React.FC = () => {
     });
   };
 
+  const handleSplitAccount = (originalAccountCode: string, newAccountName: string, amount: number) => {
+    if (amount <= 0) return;
+
+    setLedgerData(prevData => {
+      const newData = { ...prevData };
+      const originalAccount = newData[originalAccountCode];
+
+      if (!originalAccount) return prevData;
+      if (Math.abs(originalAccount.finalBalance) < amount) return prevData; // Validation (Absolute value for Credit balances)
+
+      // 1. Generate New Account Code
+      const newAccountCode = newAccountName.trim().toUpperCase();
+
+      if (!newData[newAccountCode]) {
+        // Create new account structure
+        newData[newAccountCode] = {
+          accountCode: newAccountCode,
+          accountName: newAccountName,
+          entries: [],
+          finalBalance: 0,
+          firstLine: originalAccount.firstLine + 0.1 // Insert vaguely near the original
+        };
+      }
+
+      const newAccount = newData[newAccountCode];
+
+      // 2. Create Adjustment Entries
+      const timestamp = new Date().toISOString().split('T')[0];
+      const splitId = `SPLIT-${Date.now()}`;
+
+      // Determine direction based on account nature (Sign of balance)
+      // If Balance > 0 (Debit nature): We need to CREDIT Original to reduce, and DEBIT New to increase.
+      // If Balance < 0 (Credit nature): We need to DEBIT Original to reduce (add positive), and CREDIT New to increase (add negative).
+
+      const isDebitNature = originalAccount.finalBalance >= 0;
+
+      // Entry for Original Account
+      const originalEntry: any = {
+        id: `adj-${splitId}-orig`,
+        date: timestamp,
+        accountCode: originalAccountCode,
+        accountName: originalAccount.accountName,
+        debit: isDebitNature ? 0 : amount,  // If Credit nature, Debit reduces the absolute balance
+        credit: isDebitNature ? amount : 0, // If Debit nature, Credit reduces the balance
+        description: `División de cuenta: Traslado a ${newAccountName}`,
+        entryId: 'AJUSTE',
+        originalLine: 999999,
+        runningBalance: 0 // calculated below
+      };
+
+      // Entry for New Account
+      const newEntry: any = {
+        id: `adj-${splitId}-new`,
+        date: timestamp,
+        accountCode: newAccountCode,
+        accountName: newAccountName,
+        debit: isDebitNature ? amount : 0, // Inherits nature
+        credit: isDebitNature ? 0 : amount,
+        description: `División de cuenta: Traslado desde ${originalAccount.accountName}`,
+        entryId: 'AJUSTE',
+        originalLine: 999999,
+        runningBalance: 0 // calculated below
+      };
+
+      // 3. Apply updates
+      // Update Original
+      const updatedOriginalEntries = [...originalAccount.entries, originalEntry];
+      // Recalculate original balances
+      let runBalOrig = 0;
+      updatedOriginalEntries.forEach(e => {
+        runBalOrig = runBalOrig + e.debit - e.credit;
+        e.runningBalance = runBalOrig;
+      });
+      newData[originalAccountCode] = {
+        ...originalAccount,
+        entries: updatedOriginalEntries,
+        finalBalance: runBalOrig
+      };
+
+      // Update New
+      const updatedNewEntries = [...newAccount.entries, newEntry];
+      let runBalNew = 0;
+      updatedNewEntries.forEach(e => {
+        runBalNew = runBalNew + e.debit - e.credit;
+        e.runningBalance = runBalNew;
+      });
+      newData[newAccountCode] = {
+        ...newAccount,
+        entries: updatedNewEntries,
+        finalBalance: runBalNew
+      };
+
+      return newData;
+    });
+  };
+
+  const handleDeleteAccount = (accountCode: string) => {
+    // Confirmation is handled in the UI component, this just executes
+    setLedgerData(prevData => {
+      const newData = { ...prevData };
+      delete newData[accountCode];
+      return newData;
+    });
+  };
+
   return (
     <div className="h-screen bg-seashell dark:bg-[#1a1a1a] text-obsidian dark:text-seashell font-sans transition-colors duration-300 selection:bg-denim selection:text-white flex flex-col overflow-hidden">
       {/* Enterprise Navbar - Mobile responsive */}
@@ -245,6 +350,8 @@ const App: React.FC = () => {
                     ledgerData={ledgerData}
                     fileName={currentFileName}
                     onUpdateEntry={handleUpdateEntry}
+                    onSplitAccount={handleSplitAccount}
+                    onDeleteAccount={handleDeleteAccount}
                   />
                 </div>
               </div>

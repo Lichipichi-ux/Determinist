@@ -1,14 +1,17 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { AccountLedger } from '../types';
 import { CURRENCY_FORMAT } from '../utils/constants';
-import { Search, Filter, Download, ArrowRightCircle, X, Table, LayoutList, ChevronDown } from 'lucide-react';
+import { Search, Filter, Download, ArrowRightCircle, X, Table, LayoutList, ChevronDown, Scissors, Trash2, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import RecapitulationView from './RecapitulationView';
+import SplitAccountModal from './SplitAccountModal';
 
 interface LedgerViewProps {
   ledgerData: Record<string, AccountLedger>;
   fileName: string;
   onUpdateEntry: (accountCode: string, entryId: string, field: 'debit' | 'credit', newValue: number) => void;
+  onSplitAccount: (originalAccountCode: string, newAccountName: string, amount: number) => void;
+  onDeleteAccount: (accountCode: string) => void;
 }
 
 const EditableCell: React.FC<{
@@ -205,13 +208,14 @@ const AccountListItem = React.memo(({
   );
 });
 
-const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateEntry }) => {
+const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateEntry, onSplitAccount, onDeleteAccount }) => {
   const [selectedAccountCode, setSelectedAccountCode] = useState<string | null>(null);
   const [expandedAccountCode, setExpandedAccountCode] = useState<string | null>(null);
   const [isLedgerExpanded, setIsLedgerExpanded] = useState(false); // Accordion state for mobile
   const [filterText, setFilterText] = useState('');
   const [sortMode, setSortMode] = useState<'BOOK' | 'ALPHA'>('BOOK');
   const [viewMode, setViewMode] = useState<'DETAIL' | 'RECAP'>('DETAIL');
+  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
 
   // Get list of accounts for sidebar/dropdown
   const accounts = useMemo(() => {
@@ -225,9 +229,12 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
     }
   }, [ledgerData, sortMode]);
 
-  // Set default account on load
+  // Set default account on load, or if the selected account is no longer in the list (deleted)
   React.useEffect(() => {
-    if (accounts.length > 0 && !selectedAccountCode) {
+    // Check if the currently selected code exists in the current list
+    const isSelectionValid = selectedAccountCode && accounts.some(a => a.accountCode === selectedAccountCode);
+
+    if (accounts.length > 0 && !isSelectionValid) {
       setSelectedAccountCode(accounts[0].accountCode);
     }
   }, [accounts, selectedAccountCode]);
@@ -408,8 +415,51 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
                     />
                   </div>
 
-                  {/* Download Button (Desktop) */}
+                  {/* Correction Controls Block */}
+                  <div className="flex items-center gap-2 border-l border-obsidian/10 dark:border-white/10 pl-3 md:pl-6 ml-3 md:ml-0">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[8px] uppercase tracking-widest text-obsidian/30 dark:text-seashell/30 font-bold hidden md:block text-right px-1">
+                        Corrección Manual
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {/* Split Account Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsSplitModalOpen(true);
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-denim/5 dark:bg-white/5 dark:hover:bg-white/10 text-denim dark:text-seashell font-bold uppercase text-[9px] tracking-widest rounded-sm border border-denim/20 hover:border-denim/50 transition-all shadow-sm"
+                          title="Dividir saldo en nueva cuenta"
+                        >
+                          <Scissors className="w-3 h-3" />
+                          <span className="hidden xl:inline">Dividir</span>
+                        </button>
+
+                        {/* Delete Account Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`¿Está seguro que desea eliminar la cuenta "${currentAccount.accountName}"?\n\nEsta acción eliminará la cuenta y su saldo de forma permanente de esta vista. El monto nio será reasignado.\n\nEsta acción es irreversible.`)) {
+                              onDeleteAccount(currentAccount.accountCode);
+                              // If we delete the current account, we should probably clear selection or let the parent/effect handle it.
+                              // The effect [ledgerData] will re-run and might set a new default if selectedAccountCode becomes invalid.
+                              // However, we should manually clear it to be safe or rely on the effect in LedgerView.
+                              // Effect at line 232 sets default if null. If we delete, selectedAccountCode still points to it until render updates.
+                              // Ideally we initiate deletion and let the props update.
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-red-50 dark:bg-white/5 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 font-bold uppercase text-[9px] tracking-widest rounded-sm border border-red-200 hover:border-red-400 dark:border-red-900/30 transition-all shadow-sm group"
+                          title="Eliminar cuenta (Esta acción no cuadra saldos, solo elimina)"
+                        >
+                          <Trash2 className="w-3 h-3 group-hover:text-red-700" />
+                          <span className="hidden xl:inline">Eliminar</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="h-8 w-px bg-obsidian/10 dark:bg-white/10 hidden md:block"></div>
+
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -424,6 +474,18 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
               </button>
             )}
 
+            {/* Split Account Modal */}
+            {currentAccount && (
+              <SplitAccountModal
+                isOpen={isSplitModalOpen}
+                onClose={() => setIsSplitModalOpen(false)}
+                currentAccountName={currentAccount.accountName}
+                currentBalance={currentAccount.finalBalance}
+                onConfirm={(amount, newName) => {
+                  onSplitAccount(currentAccount.accountCode, newName, amount);
+                }}
+              />
+            )}
 
             {/* Collapsible Detail Section - Hidden by default on mobile */}
             <div className={`
