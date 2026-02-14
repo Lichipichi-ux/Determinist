@@ -1,6 +1,6 @@
 import { JournalEntry, AccountLedger, LedgerLine } from '../types';
 
-import { areStringsSimilar } from '../utils/stringSimilarity';
+import { normalizeSpecificAccounts, areStringsSimilar } from '../utils/stringSimilarity';
 
 /**
  * Core Logic: Group by Account and Calculate Running Balance
@@ -18,7 +18,8 @@ export const generateLedger = (entries: JournalEntry[]): Record<string, AccountL
 
   entries.forEach(entry => {
     // Normalize code to uppercase to ensure "Caja" == "CAJA" == "caja" (Ticket: Case Insensitive Grouping)
-    const normalizedCode = entry.accountCode.trim().toUpperCase();
+    // AND Handle specific aliases like "CAJA Y BANCOS" => "BANCOS"
+    const normalizedCode = normalizeSpecificAccounts(entry.accountCode);
     let targetKey = normalizedCode;
 
     // 1. Try Exact Match

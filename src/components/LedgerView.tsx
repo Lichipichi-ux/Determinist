@@ -10,7 +10,7 @@ interface LedgerViewProps {
   ledgerData: Record<string, AccountLedger>;
   fileName: string;
   onUpdateEntry: (accountCode: string, entryId: string, field: 'debit' | 'credit', newValue: number) => void;
-  onSplitAccount: (originalAccountCode: string, newAccountName: string, amount: number) => void;
+  onSplitAccount: (originalAccountCode: string, newAccountName: string, amount: number, side: 'DEBIT' | 'CREDIT', targetOrder: number) => void;
   onDeleteAccount: (accountCode: string) => void;
 }
 
@@ -481,9 +481,10 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
                 onClose={() => setIsSplitModalOpen(false)}
                 currentAccountName={currentAccount.accountName}
                 currentBalance={currentAccount.finalBalance}
-                onConfirm={(amount, newName) => {
-                  onSplitAccount(currentAccount.accountCode, newName, amount);
+                onConfirm={(amount, newName, side, targetOrder) => {
+                  onSplitAccount(currentAccount.accountCode, newName, amount, side, targetOrder);
                 }}
+                totalAccounts={accounts.length}
               />
             )}
 
@@ -498,7 +499,7 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
                 <>
                   {/* Mobile: Mini-Cards Layout */}
                   <div className="md:hidden p-3 space-y-3 bg-gradient-to-b from-slate-50/50 to-white dark:from-obsidian dark:to-obsidian">
-                    {currentAccount.entries.map((entry) => (
+                    {currentAccount.entries.filter(e => !e.isHidden).map((entry) => (
                       <div
                         key={entry.id}
                         className="bg-white dark:bg-obsidian/80 rounded-xl border border-obsidian/10 dark:border-white/10 p-4 shadow-sm hover:shadow-md transition-all duration-200"
@@ -608,7 +609,7 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-obsidian/5 dark:divide-white/5">
-                        {currentAccount.entries.map((entry) => (
+                        {currentAccount.entries.filter(e => !e.isHidden).map((entry) => (
                           <tr key={entry.id} className="hover:bg-denim/5 dark:hover:bg-white/5 transition-colors group">
                             <td className="px-3 py-3 md:px-4 md:py-2 whitespace-nowrap text-obsidian/70 dark:text-seashell/70 font-mono text-sm md:text-xs">
                               {entry.date}

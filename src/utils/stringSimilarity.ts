@@ -7,16 +7,19 @@ const CRITICAL_KEYWORDS = [
     ['ACREDITAR', 'PAGAR', 'COBRAR', 'PAGADO', 'COBRADO', 'PAGADA', 'COBRADA'],
 
     // Transaction types - mutually exclusive
-    ['COMPRAS', 'VENTAS', 'RENTA', 'HONORARIOS', 'SERVICIOS'],
+    ['COMPRAS', 'VENTAS', 'RENTA', 'HONORARIOS', 'SERVICIOS', 'ALQUILERES', 'ALQUILER'],
 
     // Account nature - mutually exclusive
     ['ACTIVO', 'PASIVO', 'CAPITAL', 'INGRESO', 'EGRESO', 'GASTO'],
 
     // Time status - mutually exclusive
-    ['ANTICIPADO', 'ANTICIPADA', 'DIFERIDO', 'DIFERIDA', 'CORRIENTE', 'CORTO PLAZO', 'LARGO PLAZO'],
+    ['ANTICIPADO', 'ANTICIPADA', 'DIFERIDO', 'DIFERIDA', 'CORRIENTE', 'CORTO PLAZO', 'LARGO PLAZO', 'ACUMULADO', 'ACUMULADA'],
 
     // Tax and contribution types - mutually exclusive
     ['IGSS', 'IVA', 'ISR', 'IUSI', 'ISO'],
+
+    // Departments - mutually exclusive
+    ['ADMINISTRACION', 'ADMIN', 'VENTAS', 'SALA DE VENTAS', 'FABRICA', 'FÁBRICA', 'OFICINA', 'PRODUCCION'],
 ];
 
 /**
@@ -197,5 +200,21 @@ export const areStringsSimilar = (a: string, b: string, threshold = 0.75): boole
     const distance = levenshteinDistance(longer, shorter);
     const similarity = (longer.length - distance) / longer.length;
 
+
     return similarity >= threshold;
+};
+
+/**
+ * Normalizes specific account names to standard keys to force grouping.
+ * Allows handling aliases like "CAJA Y BANCOS" -> "BANCOS"
+ */
+export const normalizeSpecificAccounts = (accountName: string): string => {
+    const upper = accountName.trim().toUpperCase();
+
+    // Specific Aliases
+    if (upper === 'CAJA Y BANCOS') return 'BANCOS';
+
+    // Potentially other aliases can be added here
+
+    return upper;
 };

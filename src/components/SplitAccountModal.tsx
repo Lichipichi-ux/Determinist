@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertCircle, ArrowRight } from 'lucide-react';
+import { X, AlertCircle, ArrowRight, ListOrdered } from 'lucide-react';
 import { CURRENCY_FORMAT } from '../utils/constants';
 
 interface SplitAccountModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (amount: number, newAccountName: string) => void;
+    onConfirm: (amount: number, newAccountName: string, side: 'DEBIT' | 'CREDIT', targetOrder: number) => void;
     currentAccountName: string;
     currentBalance: number;
+    totalAccounts: number;
 }
 
 const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
@@ -16,41 +17,57 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
     onConfirm,
     currentAccountName,
     currentBalance,
+    totalAccounts,
 }) => {
     const [amount, setAmount] = useState<string>('');
     const [newAccountName, setNewAccountName] = useState('');
+    const [side, setSide] = useState<'DEBIT' | 'CREDIT' | null>(null);
+    const [targetOrder, setTargetOrder] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen) {
             setAmount('');
             setNewAccountName('');
+            setSide(null);
+            setTargetOrder((totalAccounts + 1).toString());
             setError(null);
         }
-    }, [isOpen]);
+    }, [isOpen, totalAccounts]);
 
     if (!isOpen) return null;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const numAmount = parseFloat(amount);
+        const numOrder = parseInt(targetOrder, 10);
 
         if (isNaN(numAmount) || numAmount <= 0) {
             setError('Ingrese un monto válido mayor a 0.');
             return;
         }
 
-        if (numAmount > currentBalance) {
-            setError('El monto no puede ser mayor al saldo actual de la cuenta.');
-            return;
-        }
+
+        // Validation removed to allow correcting zero-balance accounts (User Request)
+        // if (numAmount > Math.abs(currentBalance)) { ... }
+
 
         if (!newAccountName.trim()) {
             setError('Ingrese un nombre para la nueva cuenta.');
             return;
         }
 
-        onConfirm(numAmount, newAccountName.trim());
+        if (!side) {
+            setError('Seleccione si el monto es Deudor o Acreedor.');
+            return;
+        }
+
+        if (isNaN(numOrder) || numOrder < 1) {
+            setError(`El orden debe ser mayor a 0.`);
+            return;
+        }
+
+        onConfirm(numAmount, newAccountName.trim(), side, numOrder);
         onClose();
     };
 
@@ -85,26 +102,119 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                         </div>
                     </div>
 
-                    <div className="space-y-4">
-                        {/* Amount Input */}
-                        <div>
-                            <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
-                                Monto a separar
-                            </label>
-                            <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30 dark:text-seashell/30 font-bold">Q</span>
+                    {/* Side Selector (Deudor/Acreedor) - REQUIRED */}
+                    <div className="bg-gradient-to-br from-denim/5 to-denim/10 border border-denim/20 rounded-lg p-4">
+                        <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/70 dark:text-seashell/70 mb-3">
+                            Origen del monto <span className="text-red-500">*</span>
+                        </label>
+                        <div className="space-y-2">
+                            {/* Debit Radio Button */}
+                            <label
+                                className={`
+                                    flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all
+                                    ${side === 'DEBIT'
+                                        ? 'border-denim bg-denim/10 shadow-sm'
+                                        : 'border-obsidian/20 dark:border-white/20 bg-white dark:bg-obsidian hover:border-denim/50 hover:bg-denim/5'
+                                    }
+                                `}
+                            >
                                 <input
-                                    type="number"
-                                    step="0.01"
-                                    value={amount}
-                                    onChange={(e) => {
-                                        setAmount(e.target.value);
+                                    type="radio"
+                                    name="side"
+                                    value="DEBIT"
+                                    checked={side === 'DEBIT'}
+                                    onChange={() => {
+                                        setSide('DEBIT');
                                         setError(null);
                                     }}
-                                    className="w-full pl-8 pr-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian dark:text-seashell"
-                                    placeholder="0.00"
-                                    autoFocus
+                                    className="w-4 h-4 text-denim focus:ring-denim focus:ring-2"
                                 />
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-obsidian dark:text-seashell">🔘 Deudor</span>
+                                    </div>
+                                    <p className="text-xs text-obsidian/60 dark:text-seashell/60 mt-1">
+                                        El monto proviene del lado del Debe
+                                    </p>
+                                </div>
+                            </label>
+
+                            {/* Credit Radio Button */}
+                            <label
+                                className={`
+                                    flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all
+                                    ${side === 'CREDIT'
+                                        ? 'border-denim bg-denim/10 shadow-sm'
+                                        : 'border-obsidian/20 dark:border-white/20 bg-white dark:bg-obsidian hover:border-denim/50 hover:bg-denim/5'
+                                    }
+                                `}
+                            >
+                                <input
+                                    type="radio"
+                                    name="side"
+                                    value="CREDIT"
+                                    checked={side === 'CREDIT'}
+                                    onChange={() => {
+                                        setSide('CREDIT');
+                                        setError(null);
+                                    }}
+                                    className="w-4 h-4 text-denim focus:ring-denim focus:ring-2"
+                                />
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-obsidian dark:text-seashell">🔘 Acreedor</span>
+                                    </div>
+                                    <p className="text-xs text-obsidian/60 dark:text-seashell/60 mt-1">
+                                        El monto proviene del lado del Haber
+                                    </p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Amount Input */}
+                            <div>
+                                <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
+                                    Monto a separar
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30 dark:text-seashell/30 font-bold">Q</span>
+                                    <input
+                                        type="number"
+                                        value={amount}
+                                        onChange={(e) => {
+                                            setAmount(e.target.value);
+                                            setError(null);
+                                        }}
+                                        className="w-full pl-8 pr-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian dark:text-seashell"
+                                        placeholder="0.00"
+                                        autoFocus
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Order Input */}
+                            <div>
+                                <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
+                                    Orden
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30 dark:text-seashell/30 font-bold">#</span>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        value={targetOrder}
+                                        onChange={(e) => {
+                                            setTargetOrder(e.target.value);
+                                            setError(null);
+                                        }}
+                                        className="w-full pl-8 pr-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian dark:text-seashell"
+                                        placeholder="#"
+                                    />
+                                </div>
                             </div>
                         </div>
 

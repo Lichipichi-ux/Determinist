@@ -104,74 +104,92 @@ const App: React.FC = () => {
     });
   };
 
-  const handleSplitAccount = (originalAccountCode: string, newAccountName: string, amount: number) => {
+  const handleSplitAccount = (originalAccountCode: string, newAccountName: string, amount: number, side: 'DEBIT' | 'CREDIT', targetOrder: number) => {
     if (amount <= 0) return;
 
     setLedgerData(prevData => {
       const newData = { ...prevData };
       const originalAccount = newData[originalAccountCode];
 
+
       if (!originalAccount) return prevData;
-      if (Math.abs(originalAccount.finalBalance) < amount) return prevData; // Validation (Absolute value for Credit balances)
+      // Removed balance check to allow correcting zero-balance or negative accounts
+      // if (Math.abs(originalAccount.finalBalance) < amount) return prevData;
 
       // 1. Generate New Account Code
       const newAccountCode = newAccountName.trim().toUpperCase();
 
+      // 2. Insert new account and Re-order
+      let allAccounts = Object.values(newData).sort((a, b) => a.firstLine - b.firstLine);
+
+      let newAccount: AccountLedger;
+
       if (!newData[newAccountCode]) {
-        // Create new account structure
-        newData[newAccountCode] = {
+        newAccount = {
           accountCode: newAccountCode,
           accountName: newAccountName,
           entries: [],
           finalBalance: 0,
-          firstLine: originalAccount.firstLine + 0.1 // Insert vaguely near the original
+          firstLine: 0
         };
+        // Insert into the array at the specific index (targetOrder - 1)
+        if (targetOrder > allAccounts.length + 1) targetOrder = allAccounts.length + 1;
+        if (targetOrder < 1) targetOrder = 1;
+
+        allAccounts.splice(targetOrder - 1, 0, newAccount);
+      } else {
+        newAccount = newData[newAccountCode];
+        // If it exists, move it.
+        const existingIdx = allAccounts.findIndex(a => a.accountCode === newAccountCode);
+        if (existingIdx !== -1) {
+          allAccounts.splice(existingIdx, 1);
+        }
+        if (targetOrder > allAccounts.length + 1) targetOrder = allAccounts.length + 1;
+        if (targetOrder < 1) targetOrder = 1;
+
+        allAccounts.splice(targetOrder - 1, 0, newAccount);
       }
 
-      const newAccount = newData[newAccountCode];
+      // Re-index all accounts
+      allAccounts.forEach((acc, index) => {
+        acc.firstLine = index + 1;
+        newData[acc.accountCode] = acc;
+      });
 
-      // 2. Create Adjustment Entries
+      // 3. Silent Transfer Logic
+      const entryIndexToRemove = originalAccount.entries.findIndex(e =>
+        (side === 'DEBIT' && e.debit === amount) ||
+        (side === 'CREDIT' && e.credit === amount)
+      );
+
       const timestamp = new Date().toISOString().split('T')[0];
       const splitId = `SPLIT-${Date.now()}`;
 
-      // Determine direction based on account nature (Sign of balance)
-      // If Balance > 0 (Debit nature): We need to CREDIT Original to reduce, and DEBIT New to increase.
-      // If Balance < 0 (Credit nature): We need to DEBIT Original to reduce (add positive), and CREDIT New to increase (add negative).
+      // Update Original Account
+      let updatedOriginalEntries = [...originalAccount.entries];
 
-      const isDebitNature = originalAccount.finalBalance >= 0;
+      if (entryIndexToRemove !== -1) {
+        // EXACT MATCH FOUND: Remove it completely (Silence)
+        updatedOriginalEntries.splice(entryIndexToRemove, 1);
+      } else {
+        // NO EXACT MATCH: Create a silent adjustment (Hidden)
+        const hiddenAdjustment: any = {
+          id: `adj-${splitId}-orig-hidden`,
+          date: timestamp,
+          accountCode: originalAccountCode,
+          accountName: originalAccount.accountName,
+          debit: side === 'CREDIT' ? amount : 0,
+          credit: side === 'DEBIT' ? amount : 0,
+          description: `(Oculto) Ajuste por división a ${newAccountName}`,
+          entryId: 'AJUSTE',
+          originalLine: 999999,
+          runningBalance: 0,
+          isHidden: true
+        };
+        updatedOriginalEntries.push(hiddenAdjustment);
+      }
 
-      // Entry for Original Account
-      const originalEntry: any = {
-        id: `adj-${splitId}-orig`,
-        date: timestamp,
-        accountCode: originalAccountCode,
-        accountName: originalAccount.accountName,
-        debit: isDebitNature ? 0 : amount,  // If Credit nature, Debit reduces the absolute balance
-        credit: isDebitNature ? amount : 0, // If Debit nature, Credit reduces the balance
-        description: `División de cuenta: Traslado a ${newAccountName}`,
-        entryId: 'AJUSTE',
-        originalLine: 999999,
-        runningBalance: 0 // calculated below
-      };
-
-      // Entry for New Account
-      const newEntry: any = {
-        id: `adj-${splitId}-new`,
-        date: timestamp,
-        accountCode: newAccountCode,
-        accountName: newAccountName,
-        debit: isDebitNature ? amount : 0, // Inherits nature
-        credit: isDebitNature ? 0 : amount,
-        description: `División de cuenta: Traslado desde ${originalAccount.accountName}`,
-        entryId: 'AJUSTE',
-        originalLine: 999999,
-        runningBalance: 0 // calculated below
-      };
-
-      // 3. Apply updates
-      // Update Original
-      const updatedOriginalEntries = [...originalAccount.entries, originalEntry];
-      // Recalculate original balances
+      // Recalculate original running balances
       let runBalOrig = 0;
       updatedOriginalEntries.forEach(e => {
         runBalOrig = runBalOrig + e.debit - e.credit;
@@ -183,15 +201,32 @@ const App: React.FC = () => {
         finalBalance: runBalOrig
       };
 
-      // Update New
-      const updatedNewEntries = [...newAccount.entries, newEntry];
+      // Update New Account
+      const targetAcc = newData[newAccountCode]; // Get reference from updated map/array
+
+      const newEntry: any = {
+        id: `adj-${splitId}-new`,
+        date: timestamp,
+        accountCode: newAccountCode,
+        accountName: newAccountName,
+        debit: side === 'DEBIT' ? amount : 0,
+        credit: side === 'CREDIT' ? amount : 0,
+        description: `Traslado desde ${originalAccount.accountName}`,
+        entryId: 'APERTURA',
+        originalLine: 999999,
+        runningBalance: 0
+      };
+
+      const updatedNewEntries = [...targetAcc.entries, newEntry];
+
       let runBalNew = 0;
       updatedNewEntries.forEach(e => {
         runBalNew = runBalNew + e.debit - e.credit;
         e.runningBalance = runBalNew;
       });
+
       newData[newAccountCode] = {
-        ...newAccount,
+        ...targetAcc,
         entries: updatedNewEntries,
         finalBalance: runBalNew
       };
