@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { AccountLedger } from '../types';
+import { AccountLedger, WatchdogAlert } from '../types';
 import { CURRENCY_FORMAT } from '../utils/constants';
-import { Search, LayoutList, ChevronDown, Scissors, Trash2, Table, FileSpreadsheet, Loader2, X, ArrowRightCircle } from 'lucide-react';
+import { Search, LayoutList, ChevronDown, Scissors, Trash2, Table, FileSpreadsheet, Loader2, X, ArrowRightCircle, ShieldAlert } from 'lucide-react';
 import { exportFullLedger } from '../utils/exportUtils';
 import RecapitulationView from './RecapitulationView';
 import SplitAccountModal from './SplitAccountModal';
@@ -12,6 +12,8 @@ interface LedgerViewProps {
   onUpdateEntry: (accountCode: string, entryId: string, field: 'debit' | 'credit', newValue: number) => void;
   onSplitAccount: (originalAccountCode: string, newAccountName: string, amount: number, side: 'DEBIT' | 'CREDIT', targetOrder: number) => void;
   onDeleteAccount: (accountCode: string) => void;
+  watchdogAlerts?: WatchdogAlert[];
+  onDismissAlerts?: () => void;
 }
 
 const EditableCell: React.FC<{
@@ -208,7 +210,8 @@ const AccountListItem = React.memo(({
   );
 });
 
-const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateEntry, onSplitAccount, onDeleteAccount }) => {
+const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateEntry, onSplitAccount, onDeleteAccount, watchdogAlerts = [], onDismissAlerts }) => {
+  const [isWatchdogExpanded, setIsWatchdogExpanded] = useState(false);
   const [selectedAccountCode, setSelectedAccountCode] = useState<string | null>(null);
   const [expandedAccountCode, setExpandedAccountCode] = useState<string | null>(null);
   const [isLedgerExpanded, setIsLedgerExpanded] = useState(false); // Accordion state for mobile
@@ -267,132 +270,190 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
   }
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-obsidian rounded-sm border border-obsidian/10 dark:border-white/10 shadow-sm overflow-hidden md:flex-row">
+    <div className="flex flex-col h-full bg-white dark:bg-obsidian rounded-sm border border-obsidian/10 dark:border-white/10 shadow-sm overflow-hidden">
 
-      {/* Sidebar: Account Selection - Responsive */}
-      <div className="w-full md:w-80 bg-seashell dark:bg-[#222222] border-b md:border-b-0 md:border-r border-obsidian/10 dark:border-white/10 flex flex-col h-[280px] md:h-full shrink-0">
-        <div className="p-2 md:p-3 border-b border-obsidian/10 dark:border-white/10 bg-obsidian/5 dark:bg-white/5 shrink-0 z-10 sticky top-0 flex flex-col gap-2">
+      {/* ═══ WATCHDOG ALERT BANNER ═══ */}
+      {watchdogAlerts.length > 0 && (
+        <div className="shrink-0 border-b border-amber-300 dark:border-amber-700 bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/10 animate-in slide-in-from-top-2 duration-300">
+          <div className="px-3 py-2 flex items-center justify-between">
+            <button
+              onClick={() => setIsWatchdogExpanded(!isWatchdogExpanded)}
+              className="flex items-center gap-2 text-left flex-1"
+            >
+              <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span className="text-[10px] uppercase font-bold tracking-widest text-amber-800 dark:text-amber-300">
+                Watchdog — {watchdogAlerts.length} alerta{watchdogAlerts.length > 1 ? 's' : ''}
+              </span>
+              <span className="text-[9px] text-amber-600/70 dark:text-amber-400/70 hidden sm:inline">
+                {watchdogAlerts.filter(a => a.severity === 'CRITICAL').length > 0
+                  ? '⚠ Operaciones bloqueadas detectadas'
+                  : 'Glosas en cuarentena — no registradas como cuentas'
+                }
+              </span>
+              <ChevronDown className={`w-3 h-3 text-amber-500 transition-transform duration-200 ${isWatchdogExpanded ? 'rotate-180' : ''}`} />
+            </button>
+            <button
+              onClick={onDismissAlerts}
+              className="p-1 text-amber-500 hover:text-amber-700 dark:hover:text-amber-300 transition-colors rounded-sm hover:bg-amber-200/50 dark:hover:bg-amber-800/30"
+              title="Descartar alertas"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {isWatchdogExpanded && (
+            <div className="px-3 pb-3 max-h-40 overflow-y-auto">
+              <div className="space-y-1">
+                {watchdogAlerts.map(alert => (
+                  <div
+                    key={alert.id}
+                    className={`flex items-start gap-2 px-2 py-1.5 rounded-sm text-[10px] font-mono ${alert.severity === 'CRITICAL'
+                        ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800'
+                        : 'bg-amber-100/50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-300'
+                      }`}
+                  >
+                    <span className={`shrink-0 px-1 py-0.5 rounded-sm text-[8px] font-bold uppercase tracking-wider ${alert.severity === 'CRITICAL'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-amber-500 text-white'
+                      }`}>
+                      {alert.severity}
+                    </span>
+                    <span className="leading-tight break-all">
+                      <strong>{alert.accountName}</strong> — {alert.description.substring(0, 80)}{alert.description.length > 80 ? '…' : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
-          {/* Global Export Button */}
-          <button
-            onClick={handleGlobalExport}
-            disabled={isExporting}
-            className={`
+      <div className="flex flex-1 overflow-hidden md:flex-row flex-col">
+
+        {/* Sidebar: Account Selection - Responsive */}
+        <div className="w-full md:w-80 bg-seashell dark:bg-[#222222] border-b md:border-b-0 md:border-r border-obsidian/10 dark:border-white/10 flex flex-col h-[280px] md:h-full shrink-0">
+          <div className="p-2 md:p-3 border-b border-obsidian/10 dark:border-white/10 bg-obsidian/5 dark:bg-white/5 shrink-0 z-10 sticky top-0 flex flex-col gap-2">
+
+            {/* Global Export Button */}
+            <button
+              onClick={handleGlobalExport}
+              disabled={isExporting}
+              className={`
               w-full flex items-center justify-center gap-2 
               bg-denim hover:bg-denim/90 text-white 
               disabled:opacity-70 disabled:cursor-not-allowed
               py-2.5 rounded-sm shadow-sm transition-all
               mb-1 group
             `}
-          >
-            {isExporting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <FileSpreadsheet className="w-4 h-4" />
-            )}
-            <span className="text-[10px] uppercase font-bold tracking-widest">
-              {isExporting ? 'Generando Excel...' : 'Exportar Libro Mayor'}
-            </span>
-          </button>
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="w-4 h-4" />
+              )}
+              <span className="text-[10px] uppercase font-bold tracking-widest">
+                {isExporting ? 'Generando Excel...' : 'Exportar Libro Mayor'}
+              </span>
+            </button>
 
-          {/* SORT TOGGLE - Mobile optimized */}
-          <div className="flex bg-white dark:bg-obsidian rounded border border-obsidian/10 dark:border-white/10 p-0.5 mb-1">
-            <button
-              onClick={() => setSortMode('BOOK')}
-              className={`flex-1 text-[10px] md:text-[10px] uppercase font-bold py-2 md:py-1.5 rounded-sm transition-colors min-h-[40px] md:min-h-0 ${sortMode === 'BOOK' ? 'bg-denim text-white shadow-sm' : 'text-obsidian/50 dark:text-seashell/50 hover:bg-obsidian/5 dark:hover:bg-white/5'}`}
-            >
-              Por Diario
-            </button>
-            <button
-              onClick={() => setSortMode('ALPHA')}
-              className={`flex-1 text-[10px] md:text-[10px] uppercase font-bold py-2 md:py-1.5 rounded-sm transition-colors min-h-[40px] md:min-h-0 ${sortMode === 'ALPHA' ? 'bg-denim text-white shadow-sm' : 'text-obsidian/50 dark:text-seashell/50 hover:bg-obsidian/5 dark:hover:bg-white/5'}`}
-            >
-              Alfabético
-            </button>
-          </div>
-
-          {/* VIEW MODE TOGGLE - Mobile optimized */}
-          <div className="flex bg-white dark:bg-obsidian rounded border border-obsidian/10 dark:border-white/10 p-0.5 mb-1">
-            <button
-              onClick={() => setViewMode('DETAIL')}
-              className={`flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[10px] uppercase font-bold py-2 md:py-1.5 rounded-sm transition-colors min-h-[40px] md:min-h-0 ${viewMode === 'DETAIL' ? 'bg-denim text-white shadow-sm' : 'text-obsidian/50 dark:text-seashell/50 hover:bg-obsidian/5 dark:hover:bg-white/5'}`}
-            >
-              <LayoutList className="w-3.5 h-3.5 md:w-3 md:h-3" />
-              Detalle
-            </button>
-            <button
-              onClick={() => setViewMode('RECAP')}
-              className={`flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[10px] uppercase font-bold py-2 md:py-1.5 rounded-sm transition-colors min-h-[40px] md:min-h-0 ${viewMode === 'RECAP' ? 'bg-denim text-white shadow-sm' : 'text-obsidian/50 dark:text-seashell/50 hover:bg-obsidian/5 dark:hover:bg-white/5'}`}
-            >
-              <Table className="w-3.5 h-3.5 md:w-3 md:h-3" />
-              Resumen
-            </button>
-          </div>
-
-          {/* Search input - Mobile optimized */}
-          <div className="relative w-full flex items-center">
-            <Search className="absolute left-3 w-4 h-4 text-obsidian/40 dark:text-seashell/40 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Buscar cuenta..."
-              value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
-              className="w-full pl-9 pr-8 py-2.5 md:py-2 bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 rounded-md text-sm focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim text-obsidian dark:text-seashell transition-all shadow-sm placeholder:text-obsidian/30 dark:placeholder:text-seashell/30 truncate"
-            />
-            {filterText && (
+            {/* SORT TOGGLE - Mobile optimized */}
+            <div className="flex bg-white dark:bg-obsidian rounded border border-obsidian/10 dark:border-white/10 p-0.5 mb-1">
               <button
-                onClick={() => setFilterText('')}
-                className="absolute right-2.5 p-1 md:p-0.5 text-obsidian/40 hover:text-denim dark:text-seashell/40 dark:hover:text-denim transition-colors rounded-full hover:bg-obsidian/5 dark:hover:bg-white/10 min-w-[32px] min-h-[32px] md:min-w-0 md:min-h-0 flex items-center justify-center"
-                title="Limpiar búsqueda"
+                onClick={() => setSortMode('BOOK')}
+                className={`flex-1 text-[10px] md:text-[10px] uppercase font-bold py-2 md:py-1.5 rounded-sm transition-colors min-h-[40px] md:min-h-0 ${sortMode === 'BOOK' ? 'bg-denim text-white shadow-sm' : 'text-obsidian/50 dark:text-seashell/50 hover:bg-obsidian/5 dark:hover:bg-white/5'}`}
               >
-                <X className="w-4 h-4 md:w-3.5 md:h-3.5" />
+                Por Diario
               </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto min-h-0 p-2 md:p-0 space-y-2 md:space-y-0">
-          {filteredAccounts.map((acc, index) => (
-            <AccountListItem
-              key={acc.accountCode}
-              acc={acc}
-              index={index}
-              isSelected={selectedAccountCode === acc.accountCode}
-              isExpanded={expandedAccountCode === acc.accountCode}
-              onSelect={() => {
-                setSelectedAccountCode(acc.accountCode);
-                if (window.innerWidth < 768) {
-                  setExpandedAccountCode(expandedAccountCode === acc.accountCode ? null : acc.accountCode);
-                }
-              }}
-              toggleExpand={(e) => {
-                e.stopPropagation();
-                if (window.innerWidth < 768) {
-                  setExpandedAccountCode(expandedAccountCode === acc.accountCode ? null : acc.accountCode);
-                }
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Main Content: Ledger Table or Recapitulation */}
-      <div className="flex-1 flex flex-col h-[calc(100vh-400px)] md:h-full overflow-hidden bg-white dark:bg-obsidian">
-
-        {viewMode === 'RECAP' ? (
-          <RecapitulationView ledgerData={ledgerData} />
-        ) : (
-          <>
-            {/* Clickeable Header Card - Accordion Trigger (Mobile) / Static Header (Desktop) */}
-            {currentAccount && (
               <button
-                onClick={() => {
-                  // Toggle collapse on mobile only
+                onClick={() => setSortMode('ALPHA')}
+                className={`flex-1 text-[10px] md:text-[10px] uppercase font-bold py-2 md:py-1.5 rounded-sm transition-colors min-h-[40px] md:min-h-0 ${sortMode === 'ALPHA' ? 'bg-denim text-white shadow-sm' : 'text-obsidian/50 dark:text-seashell/50 hover:bg-obsidian/5 dark:hover:bg-white/5'}`}
+              >
+                Alfabético
+              </button>
+            </div>
+
+            {/* VIEW MODE TOGGLE - Mobile optimized */}
+            <div className="flex bg-white dark:bg-obsidian rounded border border-obsidian/10 dark:border-white/10 p-0.5 mb-1">
+              <button
+                onClick={() => setViewMode('DETAIL')}
+                className={`flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[10px] uppercase font-bold py-2 md:py-1.5 rounded-sm transition-colors min-h-[40px] md:min-h-0 ${viewMode === 'DETAIL' ? 'bg-denim text-white shadow-sm' : 'text-obsidian/50 dark:text-seashell/50 hover:bg-obsidian/5 dark:hover:bg-white/5'}`}
+              >
+                <LayoutList className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                Detalle
+              </button>
+              <button
+                onClick={() => setViewMode('RECAP')}
+                className={`flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[10px] uppercase font-bold py-2 md:py-1.5 rounded-sm transition-colors min-h-[40px] md:min-h-0 ${viewMode === 'RECAP' ? 'bg-denim text-white shadow-sm' : 'text-obsidian/50 dark:text-seashell/50 hover:bg-obsidian/5 dark:hover:bg-white/5'}`}
+              >
+                <Table className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                Resumen
+              </button>
+            </div>
+
+            {/* Search input - Mobile optimized */}
+            <div className="relative w-full flex items-center">
+              <Search className="absolute left-3 w-4 h-4 text-obsidian/40 dark:text-seashell/40 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Buscar cuenta..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                className="w-full pl-9 pr-8 py-2.5 md:py-2 bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 rounded-md text-sm focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim text-obsidian dark:text-seashell transition-all shadow-sm placeholder:text-obsidian/30 dark:placeholder:text-seashell/30 truncate"
+              />
+              {filterText && (
+                <button
+                  onClick={() => setFilterText('')}
+                  className="absolute right-2.5 p-1 md:p-0.5 text-obsidian/40 hover:text-denim dark:text-seashell/40 dark:hover:text-denim transition-colors rounded-full hover:bg-obsidian/5 dark:hover:bg-white/10 min-w-[32px] min-h-[32px] md:min-w-0 md:min-h-0 flex items-center justify-center"
+                  title="Limpiar búsqueda"
+                >
+                  <X className="w-4 h-4 md:w-3.5 md:h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto min-h-0 p-2 md:p-0 space-y-2 md:space-y-0">
+            {filteredAccounts.map((acc, index) => (
+              <AccountListItem
+                key={acc.accountCode}
+                acc={acc}
+                index={index}
+                isSelected={selectedAccountCode === acc.accountCode}
+                isExpanded={expandedAccountCode === acc.accountCode}
+                onSelect={() => {
+                  setSelectedAccountCode(acc.accountCode);
                   if (window.innerWidth < 768) {
-                    setIsLedgerExpanded(!isLedgerExpanded);
+                    setExpandedAccountCode(expandedAccountCode === acc.accountCode ? null : acc.accountCode);
                   }
                 }}
-                className={`
+                toggleExpand={(e) => {
+                  e.stopPropagation();
+                  if (window.innerWidth < 768) {
+                    setExpandedAccountCode(expandedAccountCode === acc.accountCode ? null : acc.accountCode);
+                  }
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Main Content: Ledger Table or Recapitulation */}
+        <div className="flex-1 flex flex-col h-[calc(100vh-400px)] md:h-full overflow-hidden bg-white dark:bg-obsidian">
+
+          {viewMode === 'RECAP' ? (
+            <RecapitulationView ledgerData={ledgerData} />
+          ) : (
+            <>
+              {/* Clickeable Header Card - Accordion Trigger (Mobile) / Static Header (Desktop) */}
+              {currentAccount && (
+                <button
+                  onClick={() => {
+                    // Toggle collapse on mobile only
+                    if (window.innerWidth < 768) {
+                      setIsLedgerExpanded(!isLedgerExpanded);
+                    }
+                  }}
+                  className={`
                   px-3 py-3 md:px-6 md:py-4 border-b border-obsidian/10 dark:border-white/10 
                   flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-0 
                   bg-white dark:bg-obsidian shrink-0 w-full text-left
@@ -401,276 +462,277 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
                   transition-all duration-300
                   ${isLedgerExpanded ? 'md:border-b border-b-0' : ''}
                 `}
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[9px] md:text-[10px] font-bold text-denim uppercase tracking-widest border border-denim/20 px-1 rounded-sm">
-                      Cuenta Mayor
-                    </span>
-                    <span className="text-[9px] md:text-[10px] text-obsidian/40 dark:text-seashell/40 font-mono font-bold">
-                      #{currentAccount.accountCode}
-                    </span>
-                  </div>
-                  <h2 className="text-base md:text-lg font-bold text-obsidian dark:text-seashell uppercase tracking-tight">
-                    {currentAccount.accountName}
-                  </h2>
-                </div>
-
-                {/* Saldo Acumulado - PROTAGONISTA */}
-                <div className="flex items-center gap-3 md:gap-6 bg-gradient-to-br from-seashell to-slate-50 dark:from-white/5 dark:to-white/10 px-4 py-3 md:px-4 md:py-2 rounded-lg md:rounded-sm border border-obsidian/10 dark:border-white/10 shadow-sm">
-                  <div className="text-right flex-1">
-                    <div className="text-[9px] md:text-[10px] text-obsidian/50 dark:text-seashell/50 uppercase font-bold tracking-wider mb-1">
-                      Saldo Acumulado
-                    </div>
-                    <div className={`text-2xl md:text-xl font-mono font-bold ${currentAccount.finalBalance < 0 ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                      {CURRENCY_FORMAT.format(currentAccount.finalBalance)}
-                    </div>
-                  </div>
-
-                  {/* Chevron Indicator (Mobile Only) */}
-                  <div className="md:hidden">
-                    <ChevronDown
-                      className={`w-5 h-5 text-denim transition-transform duration-300 ${isLedgerExpanded ? 'rotate-180' : ''}`}
-                    />
-                  </div>
-
-                  {/* Correction Controls Block */}
-                  <div className="flex items-center gap-2 border-l border-obsidian/10 dark:border-white/10 pl-3 md:pl-6 ml-3 md:ml-0">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[8px] uppercase tracking-widest text-obsidian/30 dark:text-seashell/30 font-bold hidden md:block text-right px-1">
-                        Corrección Manual
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[9px] md:text-[10px] font-bold text-denim uppercase tracking-widest border border-denim/20 px-1 rounded-sm">
+                        Cuenta Mayor
                       </span>
-                      <div className="flex items-center gap-2">
-                        {/* Split Account Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsSplitModalOpen(true);
-                          }}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-denim/5 dark:bg-white/5 dark:hover:bg-white/10 text-denim dark:text-seashell font-bold uppercase text-[9px] tracking-widest rounded-sm border border-denim/20 hover:border-denim/50 transition-all shadow-sm"
-                          title="Dividir saldo en nueva cuenta"
-                        >
-                          <Scissors className="w-3 h-3" />
-                          <span className="hidden xl:inline">Dividir</span>
-                        </button>
+                      <span className="text-[9px] md:text-[10px] text-obsidian/40 dark:text-seashell/40 font-mono font-bold">
+                        #{currentAccount.accountCode}
+                      </span>
+                    </div>
+                    <h2 className="text-base md:text-lg font-bold text-obsidian dark:text-seashell uppercase tracking-tight">
+                      {currentAccount.accountName}
+                    </h2>
+                  </div>
 
-                        {/* Delete Account Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (window.confirm(`¿Está seguro que desea eliminar la cuenta "${currentAccount.accountName}"?\n\nEsta acción eliminará la cuenta y su saldo de forma permanente de esta vista. El monto nio será reasignado.\n\nEsta acción es irreversible.`)) {
-                              onDeleteAccount(currentAccount.accountCode);
-                            }
-                          }}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-red-50 dark:bg-white/5 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 font-bold uppercase text-[9px] tracking-widest rounded-sm border border-red-200 hover:border-red-400 dark:border-red-900/30 transition-all shadow-sm group"
-                          title="Eliminar cuenta (Esta acción no cuadra saldos, solo elimina)"
-                        >
-                          <Trash2 className="w-3 h-3 group-hover:text-red-700" />
-                          <span className="hidden xl:inline">Eliminar</span>
-                        </button>
+                  {/* Saldo Acumulado - PROTAGONISTA */}
+                  <div className="flex items-center gap-3 md:gap-6 bg-gradient-to-br from-seashell to-slate-50 dark:from-white/5 dark:to-white/10 px-4 py-3 md:px-4 md:py-2 rounded-lg md:rounded-sm border border-obsidian/10 dark:border-white/10 shadow-sm">
+                    <div className="text-right flex-1">
+                      <div className="text-[9px] md:text-[10px] text-obsidian/50 dark:text-seashell/50 uppercase font-bold tracking-wider mb-1">
+                        Saldo Acumulado
+                      </div>
+                      <div className={`text-2xl md:text-xl font-mono font-bold ${currentAccount.finalBalance < 0 ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                        {CURRENCY_FORMAT.format(currentAccount.finalBalance)}
                       </div>
                     </div>
+
+                    {/* Chevron Indicator (Mobile Only) */}
+                    <div className="md:hidden">
+                      <ChevronDown
+                        className={`w-5 h-5 text-denim transition-transform duration-300 ${isLedgerExpanded ? 'rotate-180' : ''}`}
+                      />
+                    </div>
+
+                    {/* Correction Controls Block */}
+                    <div className="flex items-center gap-2 border-l border-obsidian/10 dark:border-white/10 pl-3 md:pl-6 ml-3 md:ml-0">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[8px] uppercase tracking-widest text-obsidian/30 dark:text-seashell/30 font-bold hidden md:block text-right px-1">
+                          Corrección Manual
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {/* Split Account Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsSplitModalOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-denim/5 dark:bg-white/5 dark:hover:bg-white/10 text-denim dark:text-seashell font-bold uppercase text-[9px] tracking-widest rounded-sm border border-denim/20 hover:border-denim/50 transition-all shadow-sm"
+                            title="Dividir saldo en nueva cuenta"
+                          >
+                            <Scissors className="w-3 h-3" />
+                            <span className="hidden xl:inline">Dividir</span>
+                          </button>
+
+                          {/* Delete Account Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`¿Está seguro que desea eliminar la cuenta "${currentAccount.accountName}"?\n\nEsta acción eliminará la cuenta y su saldo de forma permanente de esta vista. El monto nio será reasignado.\n\nEsta acción es irreversible.`)) {
+                                onDeleteAccount(currentAccount.accountCode);
+                              }
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-red-50 dark:bg-white/5 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 font-bold uppercase text-[9px] tracking-widest rounded-sm border border-red-200 hover:border-red-400 dark:border-red-900/30 transition-all shadow-sm group"
+                            title="Eliminar cuenta (Esta acción no cuadra saldos, solo elimina)"
+                          >
+                            <Trash2 className="w-3 h-3 group-hover:text-red-700" />
+                            <span className="hidden xl:inline">Eliminar</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="h-8 w-px bg-obsidian/10 dark:bg-white/10 hidden md:block"></div>
+
+                    {/* Removed Individual Download Button */}
                   </div>
+                </button>
+              )}
 
-                  <div className="h-8 w-px bg-obsidian/10 dark:bg-white/10 hidden md:block"></div>
+              {/* Split Account Modal */}
+              {currentAccount && (
+                <SplitAccountModal
+                  isOpen={isSplitModalOpen}
+                  onClose={() => setIsSplitModalOpen(false)}
+                  currentAccountName={currentAccount.accountName}
+                  currentBalance={currentAccount.finalBalance}
+                  onConfirm={(amount, newName, side, targetOrder) => {
+                    onSplitAccount(currentAccount.accountCode, newName, amount, side, targetOrder);
+                  }}
+                  totalAccounts={accounts.length}
+                />
+              )}
 
-                  {/* Removed Individual Download Button */}
-                </div>
-              </button>
-            )}
-
-            {/* Split Account Modal */}
-            {currentAccount && (
-              <SplitAccountModal
-                isOpen={isSplitModalOpen}
-                onClose={() => setIsSplitModalOpen(false)}
-                currentAccountName={currentAccount.accountName}
-                currentBalance={currentAccount.finalBalance}
-                onConfirm={(amount, newName, side, targetOrder) => {
-                  onSplitAccount(currentAccount.accountCode, newName, amount, side, targetOrder);
-                }}
-                totalAccounts={accounts.length}
-              />
-            )}
-
-            {/* Collapsible Detail Section - Hidden by default on mobile */}
-            <div className={`
+              {/* Collapsible Detail Section - Hidden by default on mobile */}
+              <div className={`
               flex-1 overflow-auto p-0 min-h-0
               md:block
               transition-all duration-300 ease-in-out
               ${isLedgerExpanded ? 'block' : 'hidden md:block'}
             `}>
-              {currentAccount ? (
-                <>
-                  {/* Mobile: Mini-Cards Layout */}
-                  <div className="md:hidden p-3 space-y-3 bg-gradient-to-b from-slate-50/50 to-white dark:from-obsidian dark:to-obsidian">
-                    {currentAccount.entries.filter(e => !e.isHidden).map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="bg-white dark:bg-obsidian/80 rounded-xl border border-obsidian/10 dark:border-white/10 p-4 shadow-sm hover:shadow-md transition-all duration-200"
-                      >
-                        {/* Top: Date & Ref */}
-                        <div className="flex items-center justify-between mb-3 pb-2 border-b border-obsidian/5 dark:border-white/5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono text-obsidian/70 dark:text-seashell/70 font-bold">
-                              {entry.date}
-                            </span>
-                            <span className="w-px h-3 bg-obsidian/10 dark:bg-white/10"></span>
-                            <span className="text-[10px] font-mono text-obsidian/40 dark:text-seashell/40 uppercase tracking-wider">
-                              Ref: {entry.entryId}
-                            </span>
+                {currentAccount ? (
+                  <>
+                    {/* Mobile: Mini-Cards Layout */}
+                    <div className="md:hidden p-3 space-y-3 bg-gradient-to-b from-slate-50/50 to-white dark:from-obsidian dark:to-obsidian">
+                      {currentAccount.entries.filter(e => !e.isHidden).map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="bg-white dark:bg-obsidian/80 rounded-xl border border-obsidian/10 dark:border-white/10 p-4 shadow-sm hover:shadow-md transition-all duration-200"
+                        >
+                          {/* Top: Date & Ref */}
+                          <div className="flex items-center justify-between mb-3 pb-2 border-b border-obsidian/5 dark:border-white/5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-obsidian/70 dark:text-seashell/70 font-bold">
+                                {entry.date}
+                              </span>
+                              <span className="w-px h-3 bg-obsidian/10 dark:bg-white/10"></span>
+                              <span className="text-[10px] font-mono text-obsidian/40 dark:text-seashell/40 uppercase tracking-wider">
+                                Ref: {entry.entryId}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Center: Concepto - RESALTADO */}
+                          <div className="mb-4">
+                            <div className="text-[9px] uppercase tracking-widest text-obsidian/40 dark:text-seashell/40 font-bold mb-1">
+                              Concepto
+                            </div>
+                            <p className="text-sm font-medium text-obsidian dark:text-seashell leading-snug">
+                              {entry.description}
+                            </p>
+                          </div>
+
+                          {/* Bottom: Amounts Grid */}
+                          <div className="grid grid-cols-3 gap-2">
+                            {/* Debe */}
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/10 dark:to-blue-800/10 rounded-lg p-2.5 border border-blue-200/50 dark:border-blue-700/30">
+                              <div className="text-[8px] uppercase tracking-widest text-blue-600 dark:text-blue-400 font-bold mb-1">
+                                Debe
+                              </div>
+                              <div className="text-sm font-mono font-bold text-obsidian dark:text-seashell">
+                                {entry.debit !== 0 ? CURRENCY_FORMAT.format(entry.debit) : '-'}
+                              </div>
+                            </div>
+
+                            {/* Haber */}
+                            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/10 dark:to-purple-800/10 rounded-lg p-2.5 border border-purple-200/50 dark:border-purple-700/30">
+                              <div className="text-[8px] uppercase tracking-widest text-purple-600 dark:text-purple-400 font-bold mb-1">
+                                Haber
+                              </div>
+                              <div className="text-sm font-mono font-bold text-obsidian dark:text-seashell">
+                                {entry.credit !== 0 ? CURRENCY_FORMAT.format(entry.credit) : '-'}
+                              </div>
+                            </div>
+
+                            {/* Saldo */}
+                            <div className={`bg-gradient-to-br rounded-lg p-2.5 border ${entry.runningBalance < 0
+                              ? 'from-red-50 to-red-100/50 dark:from-red-900/10 dark:to-red-800/10 border-red-200/50 dark:border-red-700/30'
+                              : 'from-emerald-50 to-emerald-100/50 dark:from-emerald-900/10 dark:to-emerald-800/10 border-emerald-200/50 dark:border-emerald-700/30'
+                              }`}>
+                              <div className={`text-[8px] uppercase tracking-widest font-bold mb-1 ${entry.runningBalance < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
+                                }`}>
+                                Saldo
+                              </div>
+                              <div className={`text-sm font-mono font-bold ${entry.runningBalance < 0 ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'
+                                }`}>
+                                {CURRENCY_FORMAT.format(entry.runningBalance)}
+                              </div>
+                            </div>
                           </div>
                         </div>
+                      ))}
 
-                        {/* Center: Concepto - RESALTADO */}
-                        <div className="mb-4">
-                          <div className="text-[9px] uppercase tracking-widest text-obsidian/40 dark:text-seashell/40 font-bold mb-1">
-                            Concepto
-                          </div>
-                          <p className="text-sm font-medium text-obsidian dark:text-seashell leading-snug">
-                            {entry.description}
-                          </p>
+                      {/* Totals Card (Mobile) */}
+                      <div className="bg-gradient-to-br from-denim/5 to-denim/10 dark:from-denim/10 dark:to-denim/20 rounded-xl border-2 border-denim/30 dark:border-denim/50 p-4 shadow-md">
+                        <div className="text-xs uppercase tracking-widest text-denim font-bold mb-3 text-center">
+                          Totales del Periodo
                         </div>
-
-                        {/* Bottom: Amounts Grid */}
                         <div className="grid grid-cols-3 gap-2">
-                          {/* Debe */}
-                          <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/10 dark:to-blue-800/10 rounded-lg p-2.5 border border-blue-200/50 dark:border-blue-700/30">
-                            <div className="text-[8px] uppercase tracking-widest text-blue-600 dark:text-blue-400 font-bold mb-1">
-                              Debe
-                            </div>
-                            <div className="text-sm font-mono font-bold text-obsidian dark:text-seashell">
-                              {entry.debit !== 0 ? CURRENCY_FORMAT.format(entry.debit) : '-'}
+                          <div className="text-center">
+                            <div className="text-[9px] text-obsidian/50 dark:text-seashell/50 mb-1">Debe</div>
+                            <div className="text-base font-mono font-bold text-denim">
+                              {CURRENCY_FORMAT.format(currentAccount.entries.reduce((sum, e) => sum + e.debit, 0))}
                             </div>
                           </div>
-
-                          {/* Haber */}
-                          <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/10 dark:to-purple-800/10 rounded-lg p-2.5 border border-purple-200/50 dark:border-purple-700/30">
-                            <div className="text-[8px] uppercase tracking-widest text-purple-600 dark:text-purple-400 font-bold mb-1">
-                              Haber
-                            </div>
-                            <div className="text-sm font-mono font-bold text-obsidian dark:text-seashell">
-                              {entry.credit !== 0 ? CURRENCY_FORMAT.format(entry.credit) : '-'}
+                          <div className="text-center">
+                            <div className="text-[9px] text-obsidian/50 dark:text-seashell/50 mb-1">Haber</div>
+                            <div className="text-base font-mono font-bold text-denim">
+                              {CURRENCY_FORMAT.format(currentAccount.entries.reduce((sum, e) => sum + e.credit, 0))}
                             </div>
                           </div>
-
-                          {/* Saldo */}
-                          <div className={`bg-gradient-to-br rounded-lg p-2.5 border ${entry.runningBalance < 0
-                            ? 'from-red-50 to-red-100/50 dark:from-red-900/10 dark:to-red-800/10 border-red-200/50 dark:border-red-700/30'
-                            : 'from-emerald-50 to-emerald-100/50 dark:from-emerald-900/10 dark:to-emerald-800/10 border-emerald-200/50 dark:border-emerald-700/30'
-                            }`}>
-                            <div className={`text-[8px] uppercase tracking-widest font-bold mb-1 ${entry.runningBalance < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
-                              }`}>
-                              Saldo
+                          <div className="text-center">
+                            <div className="text-[9px] text-obsidian/50 dark:text-seashell/50 mb-1">Saldo</div>
+                            <div className={`text-base font-mono font-bold ${currentAccount.finalBalance < 0 ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                              {CURRENCY_FORMAT.format(currentAccount.finalBalance)}
                             </div>
-                            <div className={`text-sm font-mono font-bold ${entry.runningBalance < 0 ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'
-                              }`}>
-                              {CURRENCY_FORMAT.format(entry.runningBalance)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Totals Card (Mobile) */}
-                    <div className="bg-gradient-to-br from-denim/5 to-denim/10 dark:from-denim/10 dark:to-denim/20 rounded-xl border-2 border-denim/30 dark:border-denim/50 p-4 shadow-md">
-                      <div className="text-xs uppercase tracking-widest text-denim font-bold mb-3 text-center">
-                        Totales del Periodo
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="text-center">
-                          <div className="text-[9px] text-obsidian/50 dark:text-seashell/50 mb-1">Debe</div>
-                          <div className="text-base font-mono font-bold text-denim">
-                            {CURRENCY_FORMAT.format(currentAccount.entries.reduce((sum, e) => sum + e.debit, 0))}
-                          </div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-[9px] text-obsidian/50 dark:text-seashell/50 mb-1">Haber</div>
-                          <div className="text-base font-mono font-bold text-denim">
-                            {CURRENCY_FORMAT.format(currentAccount.entries.reduce((sum, e) => sum + e.credit, 0))}
-                          </div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-[9px] text-obsidian/50 dark:text-seashell/50 mb-1">Saldo</div>
-                          <div className={`text-base font-mono font-bold ${currentAccount.finalBalance < 0 ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                            {CURRENCY_FORMAT.format(currentAccount.finalBalance)}
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Desktop: Table Layout (Preserved) */}
-                  <div className="hidden md:block overflow-x-auto">
-                    <table className="min-w-full lg:min-w-0">
-                      <thead className="bg-obsidian/5 dark:bg-white/5 sticky top-0 z-10">
-                        <tr>
-                          <th scope="col" className="px-3 py-2.5 md:px-4 md:py-2 text-left text-sm md:text-xs lg:text-[10px] font-bold text-obsidian/60 dark:text-seashell/60 uppercase tracking-wider border-b border-obsidian/10 dark:border-white/10 min-w-[100px] md:min-w-0">Fecha</th>
-                          <th scope="col" className="px-3 py-2.5 md:px-4 md:py-2 text-left text-sm md:text-xs lg:text-[10px] font-bold text-obsidian/60 dark:text-seashell/60 uppercase tracking-wider border-b border-obsidian/10 dark:border-white/10 min-w-[100px] md:min-w-0">Ref. Asiento</th>
-                          <th scope="col" className="px-3 py-2.5 md:px-4 md:py-2 text-left text-sm md:text-xs lg:text-[10px] font-bold text-obsidian/60 dark:text-seashell/60 uppercase tracking-wider border-b border-obsidian/10 dark:border-white/10 min-w-[200px] md:w-1/3">Concepto / Glosa</th>
-                          <th scope="col" className="px-3 py-2.5 md:px-4 md:py-2 text-right text-sm md:text-xs lg:text-[10px] font-bold text-denim uppercase tracking-wider border-b border-obsidian/10 dark:border-white/10 min-w-[120px] md:min-w-0">Debe</th>
-                          <th scope="col" className="px-3 py-2.5 md:px-4 md:py-2 text-right text-sm md:text-xs lg:text-[10px] font-bold text-denim uppercase tracking-wider border-b border-obsidian/10 dark:border-white/10 min-w-[120px] md:min-w-0">Haber</th>
-                          <th scope="col" className="px-3 py-2.5 md:px-4 md:py-2 text-right text-sm md:text-xs lg:text-[10px] font-bold text-obsidian dark:text-seashell uppercase tracking-wider border-b border-obsidian/10 dark:border-white/10 bg-obsidian/5 dark:bg-white/10 min-w-[120px] md:min-w-0">Saldo</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-obsidian/5 dark:divide-white/5">
-                        {currentAccount.entries.filter(e => !e.isHidden).map((entry) => (
-                          <tr key={entry.id} className="hover:bg-denim/5 dark:hover:bg-white/5 transition-colors group">
-                            <td className="px-3 py-3 md:px-4 md:py-2 whitespace-nowrap text-obsidian/70 dark:text-seashell/70 font-mono text-sm md:text-xs">
-                              {entry.date}
+                    {/* Desktop: Table Layout (Preserved) */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="min-w-full lg:min-w-0">
+                        <thead className="bg-obsidian/5 dark:bg-white/5 sticky top-0 z-10">
+                          <tr>
+                            <th scope="col" className="px-3 py-2.5 md:px-4 md:py-2 text-left text-sm md:text-xs lg:text-[10px] font-bold text-obsidian/60 dark:text-seashell/60 uppercase tracking-wider border-b border-obsidian/10 dark:border-white/10 min-w-[100px] md:min-w-0">Fecha</th>
+                            <th scope="col" className="px-3 py-2.5 md:px-4 md:py-2 text-left text-sm md:text-xs lg:text-[10px] font-bold text-obsidian/60 dark:text-seashell/60 uppercase tracking-wider border-b border-obsidian/10 dark:border-white/10 min-w-[100px] md:min-w-0">Ref. Asiento</th>
+                            <th scope="col" className="px-3 py-2.5 md:px-4 md:py-2 text-left text-sm md:text-xs lg:text-[10px] font-bold text-obsidian/60 dark:text-seashell/60 uppercase tracking-wider border-b border-obsidian/10 dark:border-white/10 min-w-[200px] md:w-1/3">Concepto / Glosa</th>
+                            <th scope="col" className="px-3 py-2.5 md:px-4 md:py-2 text-right text-sm md:text-xs lg:text-[10px] font-bold text-denim uppercase tracking-wider border-b border-obsidian/10 dark:border-white/10 min-w-[120px] md:min-w-0">Debe</th>
+                            <th scope="col" className="px-3 py-2.5 md:px-4 md:py-2 text-right text-sm md:text-xs lg:text-[10px] font-bold text-denim uppercase tracking-wider border-b border-obsidian/10 dark:border-white/10 min-w-[120px] md:min-w-0">Haber</th>
+                            <th scope="col" className="px-3 py-2.5 md:px-4 md:py-2 text-right text-sm md:text-xs lg:text-[10px] font-bold text-obsidian dark:text-seashell uppercase tracking-wider border-b border-obsidian/10 dark:border-white/10 bg-obsidian/5 dark:bg-white/10 min-w-[120px] md:min-w-0">Saldo</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-obsidian/5 dark:divide-white/5">
+                          {currentAccount.entries.filter(e => !e.isHidden).map((entry) => (
+                            <tr key={entry.id} className="hover:bg-denim/5 dark:hover:bg-white/5 transition-colors group">
+                              <td className="px-3 py-3 md:px-4 md:py-2 whitespace-nowrap text-obsidian/70 dark:text-seashell/70 font-mono text-sm md:text-xs">
+                                {entry.date}
+                              </td>
+                              <td className="px-3 py-3 md:px-4 md:py-2 whitespace-nowrap text-obsidian/50 dark:text-seashell/50 font-mono text-sm md:text-xs">
+                                {entry.entryId}
+                              </td>
+                              <td className="px-3 py-3 md:px-4 md:py-2 text-obsidian/80 dark:text-seashell/80 font-medium truncate max-w-xs text-sm md:text-xs" title={entry.description}>
+                                {entry.description}
+                              </td>
+                              <td className="px-3 py-3 md:px-4 md:py-2 text-right font-mono text-obsidian/70 dark:text-seashell/70 text-base md:text-sm lg:text-xs">
+                                <EditableCell
+                                  value={entry.debit}
+                                  currencyFormat={CURRENCY_FORMAT}
+                                  onSave={(val) => onUpdateEntry(currentAccount.accountCode, entry.id, 'debit', val)}
+                                />
+                              </td>
+                              <td className="px-3 py-3 md:px-4 md:py-2 text-right font-mono text-obsidian/70 dark:text-seashell/70 text-base md:text-sm lg:text-xs">
+                                <EditableCell
+                                  value={entry.credit}
+                                  currencyFormat={CURRENCY_FORMAT}
+                                  onSave={(val) => onUpdateEntry(currentAccount.accountCode, entry.id, 'credit', val)}
+                                />
+                              </td>
+                              <td className={`px-3 py-3 md:px-4 md:py-2 text-right font-mono font-bold border-l border-obsidian/5 dark:border-white/5 text-base md:text-sm lg:text-xs ${entry.runningBalance < 0 ? 'text-red-600 bg-red-50 dark:bg-red-900/10' : 'text-obsidian dark:text-seashell bg-obsidian/5 dark:bg-white/5'}`}>
+                                {CURRENCY_FORMAT.format(entry.runningBalance)}
+                              </td>
+                            </tr>
+                          ))}
+                          {/* Total Row */}
+                          <tr className="bg-seashell dark:bg-white/5 font-bold border-t-2 border-denim">
+                            <td colSpan={3} className="px-3 py-3 md:px-4 md:py-3 text-right text-obsidian/40 dark:text-seashell/40 uppercase text-xs md:text-[10px] tracking-widest">Totales del Periodo</td>
+                            <td className="px-3 py-3 md:px-4 md:py-3 text-right font-mono text-denim text-base md:text-sm lg:text-xs">
+                              {CURRENCY_FORMAT.format(currentAccount.entries.reduce((sum, e) => sum + e.debit, 0))}
                             </td>
-                            <td className="px-3 py-3 md:px-4 md:py-2 whitespace-nowrap text-obsidian/50 dark:text-seashell/50 font-mono text-sm md:text-xs">
-                              {entry.entryId}
+                            <td className="px-3 py-3 md:px-4 md:py-3 text-right font-mono text-denim text-base md:text-sm lg:text-xs">
+                              {CURRENCY_FORMAT.format(currentAccount.entries.reduce((sum, e) => sum + e.credit, 0))}
                             </td>
-                            <td className="px-3 py-3 md:px-4 md:py-2 text-obsidian/80 dark:text-seashell/80 font-medium truncate max-w-xs text-sm md:text-xs" title={entry.description}>
-                              {entry.description}
-                            </td>
-                            <td className="px-3 py-3 md:px-4 md:py-2 text-right font-mono text-obsidian/70 dark:text-seashell/70 text-base md:text-sm lg:text-xs">
-                              <EditableCell
-                                value={entry.debit}
-                                currencyFormat={CURRENCY_FORMAT}
-                                onSave={(val) => onUpdateEntry(currentAccount.accountCode, entry.id, 'debit', val)}
-                              />
-                            </td>
-                            <td className="px-3 py-3 md:px-4 md:py-2 text-right font-mono text-obsidian/70 dark:text-seashell/70 text-base md:text-sm lg:text-xs">
-                              <EditableCell
-                                value={entry.credit}
-                                currencyFormat={CURRENCY_FORMAT}
-                                onSave={(val) => onUpdateEntry(currentAccount.accountCode, entry.id, 'credit', val)}
-                              />
-                            </td>
-                            <td className={`px-3 py-3 md:px-4 md:py-2 text-right font-mono font-bold border-l border-obsidian/5 dark:border-white/5 text-base md:text-sm lg:text-xs ${entry.runningBalance < 0 ? 'text-red-600 bg-red-50 dark:bg-red-900/10' : 'text-obsidian dark:text-seashell bg-obsidian/5 dark:bg-white/5'}`}>
-                              {CURRENCY_FORMAT.format(entry.runningBalance)}
+                            <td className={`px-3 py-3 md:px-4 md:py-3 text-right font-mono text-base md:text-sm lg:text-xs border-l border-obsidian/5 dark:border-white/5 bg-obsidian/10 dark:bg-white/10 ${currentAccount.finalBalance < 0 ? 'text-red-600' : 'text-obsidian dark:text-seashell'}`}>
+                              {CURRENCY_FORMAT.format(currentAccount.finalBalance)}
                             </td>
                           </tr>
-                        ))}
-                        {/* Total Row */}
-                        <tr className="bg-seashell dark:bg-white/5 font-bold border-t-2 border-denim">
-                          <td colSpan={3} className="px-3 py-3 md:px-4 md:py-3 text-right text-obsidian/40 dark:text-seashell/40 uppercase text-xs md:text-[10px] tracking-widest">Totales del Periodo</td>
-                          <td className="px-3 py-3 md:px-4 md:py-3 text-right font-mono text-denim text-base md:text-sm lg:text-xs">
-                            {CURRENCY_FORMAT.format(currentAccount.entries.reduce((sum, e) => sum + e.debit, 0))}
-                          </td>
-                          <td className="px-3 py-3 md:px-4 md:py-3 text-right font-mono text-denim text-base md:text-sm lg:text-xs">
-                            {CURRENCY_FORMAT.format(currentAccount.entries.reduce((sum, e) => sum + e.credit, 0))}
-                          </td>
-                          <td className={`px-3 py-3 md:px-4 md:py-3 text-right font-mono text-base md:text-sm lg:text-xs border-l border-obsidian/5 dark:border-white/5 bg-obsidian/10 dark:bg-white/10 ${currentAccount.finalBalance < 0 ? 'text-red-600' : 'text-obsidian dark:text-seashell'}`}>
-                            {CURRENCY_FORMAT.format(currentAccount.finalBalance)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-obsidian/30 dark:text-seashell/30">
+                    <ArrowRightCircle className="w-10 h-10 mb-3 opacity-30" strokeWidth={1} />
+                    <p className="text-sm font-medium">Seleccione una cuenta del listado.</p>
                   </div>
-                </>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-obsidian/30 dark:text-seashell/30">
-                  <ArrowRightCircle className="w-10 h-10 mb-3 opacity-30" strokeWidth={1} />
-                  <p className="text-sm font-medium">Seleccione una cuenta del listado.</p>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>{/* Close inner flex-row wrapper */}
     </div>
   );
 };

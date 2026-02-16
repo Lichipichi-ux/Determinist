@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { JournalEntry, ParseResult, ProcessingError } from '../types';
 import { HEADER_CANDIDATES } from '../utils/constants';
+import { filterGlosaEntries } from './watchdog';
 
 // Internal types for the parser state machine
 interface ParserState {
@@ -420,7 +421,16 @@ export const parseFile = async (file: File): Promise<ParseResult> => {
         }
 
         const result = processSheet(aoa);
-        resolve(result);
+
+        // ═══ WATCHDOG: Primary interception point ═══
+        // Filter out entries whose accountName matches a glosa pattern.
+        // These are narrative descriptions, NOT accounting accounts.
+        if (result.success) {
+          const { clean } = filterGlosaEntries(result.data);
+          resolve({ success: true, data: clean });
+        } else {
+          resolve(result);
+        }
 
       } catch (error: any) {
         console.error(error);

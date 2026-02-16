@@ -1,6 +1,7 @@
 import { JournalEntry, AccountLedger, LedgerLine } from '../types';
 
 import { normalizeSpecificAccounts, areStringsSimilar } from '../utils/stringSimilarity';
+import { guardEntry } from './watchdog';
 
 /**
  * Core Logic: Group by Account and Calculate Running Balance
@@ -17,6 +18,10 @@ export const generateLedger = (entries: JournalEntry[]): Record<string, AccountL
   // entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   entries.forEach(entry => {
+    // ═══ WATCHDOG: Defense-in-depth guard ═══
+    // If a glosa entry escaped the primary filter (parser), catch it here.
+    if (!guardEntry(entry)) return; // Skip silently — warning already logged by guardEntry
+
     // Normalize code to uppercase to ensure "Caja" == "CAJA" == "caja" (Ticket: Case Insensitive Grouping)
     // AND Handle specific aliases like "CAJA Y BANCOS" => "BANCOS"
     const normalizedCode = normalizeSpecificAccounts(entry.accountCode);

@@ -12,6 +12,7 @@ export interface JournalEntry {
 
 export interface LedgerLine extends JournalEntry {
   runningBalance: number;
+  isHidden?: boolean;
 }
 
 export interface AccountLedger {
@@ -56,4 +57,16 @@ export interface FinancialStructure {
   title: string;
   rootNodes: ChartNode[];
   obligatoryRules: string[]; // Logic identifiers for forced rows
+}
+
+// --- Watchdog Module Types ---
+
+export interface WatchdogAlert {
+  id: string;
+  timestamp: string;
+  entryId: string;
+  accountName: string;
+  description: string;
+  severity: 'WARNING' | 'CRITICAL';
+  message: string;
 }

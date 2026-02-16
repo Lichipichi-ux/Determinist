@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { AccountLedger } from '../types';
+import { isGlosa } from '../services/watchdog';
 
 /**
  * Exports the full ledger data to a professional Excel file.
@@ -51,6 +52,12 @@ export const exportFullLedger = async (ledgerData: Record<string, AccountLedger>
 
     for (const account of sortedAccounts) {
         if (account.entries.length === 0 && account.finalBalance === 0) continue;
+
+        // ═══ WATCHDOG: Export defense-in-depth ═══
+        if (isGlosa(account.accountCode) || isGlosa(account.accountName)) {
+            console.warn(`[WATCHDOG:EXPORT] Skipping glosa account in export: "${account.accountName}"`);
+            continue;
+        }
 
         // Add Group Header Row (Account Info)
         const groupRow = worksheet.addRow({

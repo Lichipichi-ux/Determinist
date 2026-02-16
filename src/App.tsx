@@ -3,8 +3,9 @@ import { BookOpen, RefreshCcw, AlertOctagon, CheckCircle2, Moon, Sun, ArrowLeft,
 import FileUpload from './components/FileUpload';
 import LedgerView from './components/LedgerView';
 import ChartSelector from './components/ChartSelector';
-import { AccountLedger, ParseResult, ProcessingError } from './types';
+import { AccountLedger, ParseResult, ProcessingError, WatchdogAlert } from './types';
 import { generateLedger } from './services/ledgerService';
+import { isGlosa, filterGlosaEntries, createBlockedOperationAlert } from './services/watchdog';
 
 type ActiveModule = 'LEDGER' | 'CHART';
 
@@ -15,6 +16,7 @@ const App: React.FC = () => {
   const [currentFileName, setCurrentFileName] = useState<string>('');
   const [errors, setErrors] = useState<ProcessingError[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [watchdogAlerts, setWatchdogAlerts] = useState<WatchdogAlert[]>([]);
 
   // Initialize theme based on system preference
   useEffect(() => {
@@ -41,7 +43,14 @@ const App: React.FC = () => {
       return;
     }
 
-    const generatedLedger = generateLedger(result.data);
+    // ═══ WATCHDOG: Final scan at App layer ═══
+    // Parser already filters, but we run one more pass to collect alerts for the UI.
+    const { clean, alerts } = filterGlosaEntries(result.data);
+    if (alerts.length > 0) {
+      setWatchdogAlerts(prev => [...prev, ...alerts]);
+    }
+
+    const generatedLedger = generateLedger(clean);
     setLedgerData(generatedLedger);
     setCurrentFileName(fileName);
     setErrors([]);
@@ -53,6 +62,7 @@ const App: React.FC = () => {
     setLedgerData({});
     setCurrentFileName('');
     setErrors([]);
+    setWatchdogAlerts([]);
   };
 
   const handleUpdateEntry = (accountCode: string, entryId: string, field: 'debit' | 'credit', newValue: number) => {
@@ -106,6 +116,14 @@ const App: React.FC = () => {
 
   const handleSplitAccount = (originalAccountCode: string, newAccountName: string, amount: number, side: 'DEBIT' | 'CREDIT', targetOrder: number) => {
     if (amount <= 0) return;
+
+    // ═══ WATCHDOG: Block split into glosa-patterned account names ═══
+    if (isGlosa(newAccountName)) {
+      const alert = createBlockedOperationAlert(newAccountName, 'División de Cuenta');
+      setWatchdogAlerts(prev => [...prev, alert]);
+      console.error(alert.message);
+      return; // BLOCKED — do not proceed
+    }
 
     setLedgerData(prevData => {
       const newData = { ...prevData };
@@ -387,6 +405,8 @@ const App: React.FC = () => {
                     onUpdateEntry={handleUpdateEntry}
                     onSplitAccount={handleSplitAccount}
                     onDeleteAccount={handleDeleteAccount}
+                    watchdogAlerts={watchdogAlerts}
+                    onDismissAlerts={() => setWatchdogAlerts([])}
                   />
                 </div>
               </div>
