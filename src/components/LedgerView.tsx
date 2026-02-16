@@ -1,8 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { AccountLedger } from '../types';
 import { CURRENCY_FORMAT } from '../utils/constants';
-import { Search, Filter, Download, ArrowRightCircle, X, Table, LayoutList, ChevronDown, Scissors, Trash2, AlertTriangle } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { Search, LayoutList, ChevronDown, Scissors, Trash2, Table, FileSpreadsheet, Loader2, X, ArrowRightCircle } from 'lucide-react';
+import { exportFullLedger } from '../utils/exportUtils';
 import RecapitulationView from './RecapitulationView';
 import SplitAccountModal from './SplitAccountModal';
 
@@ -216,6 +216,7 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
   const [sortMode, setSortMode] = useState<'BOOK' | 'ALPHA'>('BOOK');
   const [viewMode, setViewMode] = useState<'DETAIL' | 'RECAP'>('DETAIL');
   const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Get list of accounts for sidebar/dropdown
   const accounts = useMemo(() => {
@@ -247,22 +248,18 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
     acc.accountName.toLowerCase().includes(filterText.toLowerCase())
   );
 
-  const exportToExcel = () => {
-    if (!currentAccount) return;
-
-    const wsData = currentAccount.entries.map(e => ({
-      'Fecha': e.date,
-      'ID Asiento': e.entryId,
-      'Glosa': e.description,
-      'Debe': e.debit,
-      'Haber': e.credit,
-      'Saldo': e.runningBalance
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(wsData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Mayor");
-    XLSX.writeFile(wb, `Mayor_${currentAccount.accountCode}.xlsx`);
+  const handleGlobalExport = async () => {
+    setIsExporting(true);
+    try {
+      // Add a small delay to allow UI to update (React render cycle)
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await exportFullLedger(ledgerData);
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Error al exportar el archivo. Por favor intente nuevamente.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (!currentAccount && accounts.length === 0) {
@@ -275,6 +272,28 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
       {/* Sidebar: Account Selection - Responsive */}
       <div className="w-full md:w-80 bg-seashell dark:bg-[#222222] border-b md:border-b-0 md:border-r border-obsidian/10 dark:border-white/10 flex flex-col h-[280px] md:h-full shrink-0">
         <div className="p-2 md:p-3 border-b border-obsidian/10 dark:border-white/10 bg-obsidian/5 dark:bg-white/5 shrink-0 z-10 sticky top-0 flex flex-col gap-2">
+
+          {/* Global Export Button */}
+          <button
+            onClick={handleGlobalExport}
+            disabled={isExporting}
+            className={`
+              w-full flex items-center justify-center gap-2 
+              bg-denim hover:bg-denim/90 text-white 
+              disabled:opacity-70 disabled:cursor-not-allowed
+              py-2.5 rounded-sm shadow-sm transition-all
+              mb-1 group
+            `}
+          >
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4" />
+            )}
+            <span className="text-[10px] uppercase font-bold tracking-widest">
+              {isExporting ? 'Generando Excel...' : 'Exportar Libro Mayor'}
+            </span>
+          </button>
 
           {/* SORT TOGGLE - Mobile optimized */}
           <div className="flex bg-white dark:bg-obsidian rounded border border-obsidian/10 dark:border-white/10 p-0.5 mb-1">
@@ -441,11 +460,6 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
                             e.stopPropagation();
                             if (window.confirm(`¿Está seguro que desea eliminar la cuenta "${currentAccount.accountName}"?\n\nEsta acción eliminará la cuenta y su saldo de forma permanente de esta vista. El monto nio será reasignado.\n\nEsta acción es irreversible.`)) {
                               onDeleteAccount(currentAccount.accountCode);
-                              // If we delete the current account, we should probably clear selection or let the parent/effect handle it.
-                              // The effect [ledgerData] will re-run and might set a new default if selectedAccountCode becomes invalid.
-                              // However, we should manually clear it to be safe or rely on the effect in LedgerView.
-                              // Effect at line 232 sets default if null. If we delete, selectedAccountCode still points to it until render updates.
-                              // Ideally we initiate deletion and let the props update.
                             }
                           }}
                           className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-red-50 dark:bg-white/5 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 font-bold uppercase text-[9px] tracking-widest rounded-sm border border-red-200 hover:border-red-400 dark:border-red-900/30 transition-all shadow-sm group"
@@ -460,16 +474,7 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
 
                   <div className="h-8 w-px bg-obsidian/10 dark:bg-white/10 hidden md:block"></div>
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      exportToExcel();
-                    }}
-                    className="text-obsidian/40 hover:text-denim dark:text-seashell/40 dark:hover:text-denim transition-colors p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 md:p-0 flex items-center justify-center hidden md:flex"
-                    title="Descargar Hoja de Cálculo"
-                  >
-                    <Download className="w-5 h-5" />
-                  </button>
+                  {/* Removed Individual Download Button */}
                 </div>
               </button>
             )}
@@ -667,7 +672,6 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
         )}
       </div>
     </div>
-
   );
 };
 
