@@ -165,9 +165,12 @@ const RecapitulationView: React.FC<RecapitulationViewProps> = ({ ledgerData }) =
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-obsidian/5 dark:divide-white/5 bg-white dark:bg-obsidian">
-                            {recapRows.map((row) => (
+                            {recapRows.map((row, index) => (
                                 <tr key={row.code} className="hover:bg-denim/5 dark:hover:bg-white/5 transition-colors group">
-                                    <td className="px-4 py-3 md:px-4 md:py-2 text-obsidian/80 dark:text-seashell/80 font-medium text-sm md:text-xs">{row.name}</td>
+                                    <td className="px-4 py-3 md:px-4 md:py-2 text-obsidian/80 dark:text-seashell/80 font-medium text-sm md:text-xs">
+                                        <span className="text-[10px] text-obsidian/30 dark:text-seashell/30 font-normal mr-2">{index + 1}.</span>
+                                        {row.name}
+                                    </td>
 
                                     {/* Sumas Columns - Larger fonts on mobile */}
                                     <td className="px-4 py-3 md:px-4 md:py-2 text-right font-mono text-obsidian/60 dark:text-seashell/60 bg-gray-50/50 dark:bg-white/5 text-base md:text-sm lg:text-xs">
