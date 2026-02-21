@@ -17,17 +17,17 @@
  * ═══════════════════════════════════════════════════════════════════════
  */
 
-import { JournalEntry, WatchdogAlert } from '../types';
+import { JournalEntry, WatchdogAlert } from '../../types';
 
 // ─── Pattern Definitions ──────────────────────────────────────────────
 // Each regex uses case-insensitive matching and trims whitespace.
 // "Por" requires a following space to avoid false matches like "Porcentaje".
 
 export const GLOSA_PATTERNS: { label: string; regex: RegExp }[] = [
-  { label: 'POR',               regex: /^por\s+/i },
-  { label: 'DTE_FACTURA',       regex: /^dte\s+factura/i },
-  { label: 'DTE_NOTA_ENVIO',    regex: /^dte\s+nota\s+de\s+env[ií]o/i },
-  { label: 'CHEQUE_NO',         regex: /^cheque\s+no\.?\s*/i },
+  { label: 'POR', regex: /^por\s+/i },
+  { label: 'DTE_FACTURA', regex: /^dte\s+factura/i },
+  { label: 'DTE_NOTA_ENVIO', regex: /^dte\s+nota\s+de\s+env[ií]o/i },
+  { label: 'CHEQUE_NO', regex: /^cheque\s+no\.?\s*/i },
 ];
 
 // ─── Core Detection ───────────────────────────────────────────────────

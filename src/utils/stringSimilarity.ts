@@ -231,10 +231,9 @@ export const normalizeSpecificAccounts = (accountName: string): string => {
     // Specific Aliases
     if (upper === 'CAJA Y BANCOS') return 'BANCOS';
 
-    // Normalize "AL PERSONAL" (e.g., "Prestamos al personal" -> "PRESTAMOS")
-    if (upper.endsWith(' AL PERSONAL')) {
-        upper = upper.replace(' AL PERSONAL', '').trim();
-    }
+    // Normalize "AL PERSONAL" / "DEL PERSONAL" 
+    // e.g., "Prestamos al personal" -> "PRESTAMOS", "Gastos de consumo del personal" -> "GASTOS DE CONSUMO"
+    upper = upper.replace(/\s+(AL|DEL|A)\s+PERSONAL$/i, '').trim();
 
     return upper;
 };

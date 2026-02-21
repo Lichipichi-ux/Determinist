@@ -1,8 +1,7 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { AccountLedger } from '../types';
+import { AccountLedger, JournalEntry } from '../types';
 import { isGlosa } from '../services/watchdog';
-
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -386,17 +385,19 @@ const buildBalanceComprobacionSheet = (
     autoFitColumns(ws);
 };
 
+
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PUBLIC API
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Generates a professional two-sheet Excel file:
+ * Generates a professional multi-sheet Excel file:
  *  - Sheet 1: Libro Mayor (no "Código de Cuenta" column, grayscale, auto-fit)
  *  - Sheet 2: Balance de Comprobación (currency numFmt, grayscale, auto-fit)
  *
- * @param ledgerData  Processed ledger record
- * @param rawFileName The original file name submitted by the user
+ * @param ledgerData     Processed ledger record
+ * @param rawFileName    The original file name submitted by the user
  */
 export const exportFullLedger = async (
     ledgerData: Record<string, AccountLedger>,

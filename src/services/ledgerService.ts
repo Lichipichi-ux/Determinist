@@ -1,7 +1,9 @@
 import { JournalEntry, AccountLedger, LedgerLine } from '../types';
 
 import { normalizeSpecificAccounts, areStringsSimilar } from '../utils/stringSimilarity';
-import { guardEntry } from './watchdog';
+import { guardEntry } from './watchdog/glosaEngine';
+import { normalizeText, tokenize } from './watchdog/normalizationEngine';
+import { combinedSimilarity } from './watchdog/duplicateEngine';
 
 /**
  * Core Logic: Group by Account and Calculate Running Balance
@@ -24,14 +26,25 @@ export const generateLedger = (entries: JournalEntry[]): Record<string, AccountL
 
     // Normalize code to uppercase to ensure "Caja" == "CAJA" == "caja" (Ticket: Case Insensitive Grouping)
     // AND Handle specific aliases like "CAJA Y BANCOS" => "BANCOS"
-    const normalizedCode = normalizeSpecificAccounts(entry.accountCode);
-    let targetKey = normalizedCode;
+    let rawNormalized = normalizeSpecificAccounts(entry.accountCode);
+
+    // WATCHDOG ENHANCEMENT: Use deep normalization to kill exact hidden duplicates
+    const canonicalKey = normalizeText(rawNormalized);
+    const entryTokens = tokenize(canonicalKey);
+    let targetKey = canonicalKey;
 
     // 1. Try Exact Match
     if (!ledgerMap[targetKey]) {
       // 2. Try Fuzzy Match (Ticket: Handle Typos like "Interezez" vs "Intereses")
       // Check if any existing key is similar enough (>85% match or limited edits)
-      const similarKey = Object.keys(ledgerMap).find(k => areStringsSimilar(k, normalizedCode));
+      const similarKey = Object.keys(ledgerMap).find(k => {
+        // If strictly similar by old rules (handles critical conflicts)
+        if (areStringsSimilar(k, canonicalKey)) return true;
+
+        // Watchdog enhanced semantic similarity
+        const existingTokens = tokenize(k);
+        return combinedSimilarity(k, canonicalKey, existingTokens, entryTokens) > 0.85;
+      });
 
       if (similarKey) {
         // Found a match! Use the existing key so they group together.

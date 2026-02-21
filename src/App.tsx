@@ -3,7 +3,7 @@ import { BookOpen, RefreshCcw, AlertOctagon, CheckCircle2, Moon, Sun, ArrowLeft,
 import FileUpload from './components/FileUpload';
 import LedgerView from './components/LedgerView';
 import ChartSelector from './components/ChartSelector';
-import { AccountLedger, ParseResult, ProcessingError, WatchdogAlert } from './types';
+import { AccountLedger, JournalEntry, ParseResult, ProcessingError, WatchdogAlert } from './types';
 import { generateLedger } from './services/ledgerService';
 import { isGlosa, filterGlosaEntries, createBlockedOperationAlert } from './services/watchdog';
 
@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [activeModule, setActiveModule] = useState<ActiveModule>('LEDGER');
   const [viewState, setViewState] = useState<'UPLOAD' | 'VIEW'>('UPLOAD');
   const [ledgerData, setLedgerData] = useState<Record<string, AccountLedger>>({});
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [currentFileName, setCurrentFileName] = useState<string>('');
   const [errors, setErrors] = useState<ProcessingError[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -52,6 +53,7 @@ const App: React.FC = () => {
 
     const generatedLedger = generateLedger(clean);
     setLedgerData(generatedLedger);
+    setJournalEntries(clean);
     setCurrentFileName(fileName);
     setErrors([]);
     setViewState('VIEW');
@@ -60,6 +62,7 @@ const App: React.FC = () => {
   const resetApp = () => {
     setViewState('UPLOAD');
     setLedgerData({});
+    setJournalEntries([]);
     setCurrentFileName('');
     setErrors([]);
     setWatchdogAlerts([]);
@@ -402,6 +405,7 @@ const App: React.FC = () => {
                   <LedgerView
                     ledgerData={ledgerData}
                     fileName={currentFileName}
+                    journalEntries={journalEntries}
                     onUpdateEntry={handleUpdateEntry}
                     onSplitAccount={handleSplitAccount}
                     onDeleteAccount={handleDeleteAccount}

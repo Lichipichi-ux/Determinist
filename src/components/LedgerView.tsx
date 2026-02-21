@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { AccountLedger, WatchdogAlert } from '../types';
+import { AccountLedger, JournalEntry, WatchdogAlert } from '../types';
 import { CURRENCY_FORMAT } from '../utils/constants';
 import { Search, LayoutList, ChevronDown, Scissors, Trash2, Table, FileSpreadsheet, Loader2, X, ArrowRightCircle, ShieldAlert } from 'lucide-react';
 import { exportFullLedger } from '../utils/exportUtils';
@@ -9,6 +9,7 @@ import SplitAccountModal from './SplitAccountModal';
 interface LedgerViewProps {
   ledgerData: Record<string, AccountLedger>;
   fileName: string;
+  journalEntries: JournalEntry[];
   onUpdateEntry: (accountCode: string, entryId: string, field: 'debit' | 'credit', newValue: number) => void;
   onSplitAccount: (originalAccountCode: string, newAccountName: string, amount: number, side: 'DEBIT' | 'CREDIT', targetOrder: number) => void;
   onDeleteAccount: (accountCode: string) => void;
@@ -210,7 +211,7 @@ const AccountListItem = React.memo(({
   );
 });
 
-const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateEntry, onSplitAccount, onDeleteAccount, watchdogAlerts = [], onDismissAlerts }) => {
+const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, journalEntries, onUpdateEntry, onSplitAccount, onDeleteAccount, watchdogAlerts = [], onDismissAlerts }) => {
   const [isWatchdogExpanded, setIsWatchdogExpanded] = useState(false);
   const [selectedAccountCode, setSelectedAccountCode] = useState<string | null>(null);
   const [expandedAccountCode, setExpandedAccountCode] = useState<string | null>(null);
