@@ -13,7 +13,7 @@ const CRITICAL_KEYWORDS = [
     ['ACTIVO', 'PASIVO', 'CAPITAL', 'INGRESO', 'EGRESO', 'GASTO'],
 
     // Time status - mutually exclusive
-    ['ANTICIPADO', 'ANTICIPADA', 'DIFERIDO', 'DIFERIDA', 'CORRIENTE', 'CORTO PLAZO', 'LARGO PLAZO', 'ACUMULADO', 'ACUMULADA'],
+    ['ANTICIPADO', 'ANTICIPADA', 'DIFERIDO', 'DIFERIDA', 'CORRIENTE', 'CORTO PLAZO', 'LARGO PLAZO', 'ACUMULADO', 'ACUMULADA', 'ACUM'],
 
     // Tax and contribution types - mutually exclusive
     ['IGSS', 'IVA', 'ISR', 'IUSI', 'ISO'],
@@ -99,6 +99,15 @@ const hasKeywordConflict = (a: string, b: string): boolean => {
             const setA = new Set(foundInA);
             const setB = new Set(foundInB);
 
+            // Special case: ACUM and ACUMULADA are synonyms
+            const isAcumA = setA.has('ACUM') || setA.has('ACUMULADA') || setA.has('ACUMULADO');
+            const isAcumB = setB.has('ACUM') || setB.has('ACUMULADA') || setB.has('ACUMULADO');
+
+            if (isAcumA && isAcumB) {
+                // They both refer to accumulated, so no conflict between them
+                continue;
+            }
+
             // If the sets don't match, there's a conflict
             const hasConflict = foundInA.some(kw => !setB.has(kw)) ||
                 foundInB.some(kw => !setA.has(kw));
@@ -106,6 +115,14 @@ const hasKeywordConflict = (a: string, b: string): boolean => {
             if (hasConflict) {
                 return true;
             }
+        }
+
+        // NEW: If one has 'ACUMULADA/ACUM' and the other doesn't, they are DIFFERENT
+        const isAcumA = foundInA.some(kw => ['ACUMULADA', 'ACUMULADO', 'ACUM'].includes(kw));
+        const isAcumB = foundInB.some(kw => ['ACUMULADA', 'ACUMULADO', 'ACUM'].includes(kw));
+
+        if (isAcumA !== isAcumB) {
+            return true; // Presence mismatch for accumulated status
         }
     }
 
