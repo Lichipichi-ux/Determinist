@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
 import { AccountLedger } from '../types';
 import { CURRENCY_FORMAT } from '../utils/constants';
-import * as XLSX from 'xlsx';
-import { Download, Table } from 'lucide-react';
+import { Table } from 'lucide-react';
 
 interface RecapitulationViewProps {
     ledgerData: Record<string, AccountLedger>;
@@ -59,29 +58,7 @@ const RecapitulationView: React.FC<RecapitulationViewProps> = ({ ledgerData }) =
         );
     }, [recapRows]);
 
-    const exportToExcel = () => {
-        const wsData = recapRows.map(row => ({
-            'Cuenta': row.name,
-            'Sumas Debe': row.sumasDebe,
-            'Sumas Haber': row.sumasHaber,
-            'Saldo Deudor': row.saldoDeudor,
-            'Saldo Acreedor': row.saldoAcreedor
-        }));
 
-        // Append Totals row
-        wsData.push({
-            'Cuenta': 'TOTALES',
-            'Sumas Debe': totals.sumasDebe,
-            'Sumas Haber': totals.sumasHaber,
-            'Saldo Deudor': totals.saldoDeudor,
-            'Saldo Acreedor': totals.saldoAcreedor
-        });
-
-        const ws = XLSX.utils.json_to_sheet(wsData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Balance_Comprobacion");
-        XLSX.writeFile(wb, "Balance_Comprobacion.xlsx");
-    };
 
     // Verification Logic
     const areSumasBalanced = Math.abs(totals.sumasDebe - totals.sumasHaber) < 0.01;
@@ -110,35 +87,24 @@ const RecapitulationView: React.FC<RecapitulationViewProps> = ({ ledgerData }) =
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 md:gap-6 flex-wrap">
-                    <div className={`flex flex-col items-end px-3 py-1.5 md:px-4 md:py-2 rounded-sm border text-xs md:text-sm ${isFullyBalanced ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'}`}>
-                        <span className={`text-[8px] md:text-[9px] uppercase font-bold tracking-widest mb-0.5 ${isFullyBalanced ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
-                            {isFullyBalanced ? 'Balance Cuadrado' : 'Diferencia Detectada'}
-                        </span>
-                        {!isFullyBalanced && (
-                            <div className="flex flex-col text-right">
-                                {!areSumasBalanced && (
-                                    <span className="text-[9px] md:text-[10px] font-mono text-red-600 dark:text-red-400">
-                                        Sumas Diff: {CURRENCY_FORMAT.format(Math.abs(totals.sumasDebe - totals.sumasHaber))}
-                                    </span>
-                                )}
-                                {!areSaldosBalanced && (
-                                    <span className="text-[9px] md:text-[10px] font-mono text-red-600 dark:text-red-400">
-                                        Saldos Diff: {CURRENCY_FORMAT.format(Math.abs(totals.saldoDeudor - totals.saldoAcreedor))}
-                                    </span>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    <button
-                        onClick={exportToExcel}
-                        className="flex items-center gap-2 px-4 py-2.5 md:px-3 md:py-1.5 bg-denim hover:bg-denim/90 text-white text-xs md:text-xs font-semibold uppercase tracking-wide rounded-sm transition-all shadow-sm min-h-[44px] md:min-h-0"
-                    >
-                        <Download className="w-4 h-4 md:w-3.5 md:h-3.5" />
-                        <span className="hidden sm:inline">Exportar Excel</span>
-                        <span className="sm:hidden">Excel</span>
-                    </button>
+                <div className={`flex flex-col items-end px-3 py-1.5 md:px-4 md:py-2 rounded-sm border text-xs md:text-sm ${isFullyBalanced ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'}`}>
+                    <span className={`text-[8px] md:text-[9px] uppercase font-bold tracking-widest mb-0.5 ${isFullyBalanced ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
+                        {isFullyBalanced ? 'Balance Cuadrado' : 'Diferencia Detectada'}
+                    </span>
+                    {!isFullyBalanced && (
+                        <div className="flex flex-col text-right">
+                            {!areSumasBalanced && (
+                                <span className="text-[9px] md:text-[10px] font-mono text-red-600 dark:text-red-400">
+                                    Sumas Diff: {CURRENCY_FORMAT.format(Math.abs(totals.sumasDebe - totals.sumasHaber))}
+                                </span>
+                            )}
+                            {!areSaldosBalanced && (
+                                <span className="text-[9px] md:text-[10px] font-mono text-red-600 dark:text-red-400">
+                                    Saldos Diff: {CURRENCY_FORMAT.format(Math.abs(totals.saldoDeudor - totals.saldoAcreedor))}
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 

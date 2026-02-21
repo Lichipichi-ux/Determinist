@@ -254,9 +254,9 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
   const handleGlobalExport = async () => {
     setIsExporting(true);
     try {
-      // Add a small delay to allow UI to update (React render cycle)
+      // Small delay to allow React to re-render the loading state
       await new Promise(resolve => setTimeout(resolve, 100));
-      await exportFullLedger(ledgerData);
+      await exportFullLedger(ledgerData, fileName);
     } catch (error) {
       console.error("Export failed:", error);
       alert("Error al exportar el archivo. Por favor intente nuevamente.");
@@ -307,13 +307,13 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
                   <div
                     key={alert.id}
                     className={`flex items-start gap-2 px-2 py-1.5 rounded-sm text-[10px] font-mono ${alert.severity === 'CRITICAL'
-                        ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800'
-                        : 'bg-amber-100/50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-300'
+                      ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800'
+                      : 'bg-amber-100/50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-300'
                       }`}
                   >
                     <span className={`shrink-0 px-1 py-0.5 rounded-sm text-[8px] font-bold uppercase tracking-wider ${alert.severity === 'CRITICAL'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-amber-500 text-white'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-amber-500 text-white'
                       }`}>
                       {alert.severity}
                     </span>
@@ -352,7 +352,7 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, onUpdateE
                 <FileSpreadsheet className="w-4 h-4" />
               )}
               <span className="text-[10px] uppercase font-bold tracking-widest">
-                {isExporting ? 'Generando Excel...' : 'Exportar Libro Mayor'}
+                {isExporting ? 'Generando Excel...' : 'Exportar a Excel'}
               </span>
             </button>
 
