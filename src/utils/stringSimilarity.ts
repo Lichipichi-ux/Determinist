@@ -226,12 +226,15 @@ export const areStringsSimilar = (a: string, b: string, threshold = 0.75): boole
  * Allows handling aliases like "CAJA Y BANCOS" -> "BANCOS"
  */
 export const normalizeSpecificAccounts = (accountName: string): string => {
-    const upper = accountName.trim().toUpperCase();
+    let upper = accountName.trim().toUpperCase();
 
     // Specific Aliases
     if (upper === 'CAJA Y BANCOS') return 'BANCOS';
 
-    // Potentially other aliases can be added here
+    // Normalize "AL PERSONAL" (e.g., "Prestamos al personal" -> "PRESTAMOS")
+    if (upper.endsWith(' AL PERSONAL')) {
+        upper = upper.replace(' AL PERSONAL', '').trim();
+    }
 
     return upper;
 };
