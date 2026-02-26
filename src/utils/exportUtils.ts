@@ -132,8 +132,9 @@ const buildLibroMayorSheet = (
         pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1 },
     });
 
-    // ── Columns (NO "Código de Cuenta") ───────────────────────────────────────
+    // ── Columns ───────────────────────────────────────────────────────────────
     ws.columns = [
+        { header: 'Código', key: 'accountCode', width: 16 },
         { header: 'Cuenta', key: 'accountName', width: 36 },
         { header: 'Fecha', key: 'date', width: 12 },
         { header: 'Ref. Asiento', key: 'entryId', width: 14 },
@@ -156,9 +157,12 @@ const buildLibroMayorSheet = (
     let blockIndex = 0;   // used for alternating block shading
 
     for (const account of sortedAccounts) {
-        if (account.entries.length === 0 && account.finalBalance === 0) continue;
+        // REGLA CENTRAL: solo cuentas con movimiento real (Debe > 0 OR Haber > 0
+        // en al menos una entrada). Cuentas estructurales/subtítulos quedan fuera.
+        // No usar saldo final como criterio — una cuenta compensada tiene movimiento.
+        if (!account.entries.some(e => e.debit > 0 || e.credit > 0)) continue;
 
-        // Watchdog defense
+        // Watchdog defense: reject glosa rows that escaped earlier filters
         if (isGlosa(account.accountCode) || isGlosa(account.accountName)) {
             console.warn(`[WATCHDOG:EXPORT] Skipping glosa: "${account.accountName}"`);
             continue;
@@ -177,8 +181,8 @@ const buildLibroMayorSheet = (
             });
         };
 
-        // ── Group header row (account name) ───────────────────────────────────
-        const groupRow = ws.addRow({ accountName: account.accountName, description: '' });
+        // ── Group header row (code + account name) ────────────────────────────
+        const groupRow = ws.addRow({ accountCode: account.accountCode, accountName: account.accountName });
         groupRow.height = 18;
         groupRow.eachCell({ includeEmpty: true }, (cell) => {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: blockBg } };
@@ -285,10 +289,10 @@ const buildBalanceComprobacionSheet = (
         pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1 },
     });
 
-    // ── Build recap rows ───────────────────────────────────────────────────────
-    const sortedAccounts = Object.values(ledgerData).sort(
-        (a, b) => (a.firstLine || 0) - (b.firstLine || 0)
-    );
+    // ── Build recap rows (solo cuentas con movimiento real) ───────────────────
+    const sortedAccounts = Object.values(ledgerData)
+        .filter(account => account.entries.some(e => e.debit > 0 || e.credit > 0))
+        .sort((a, b) => (a.firstLine || 0) - (b.firstLine || 0));
 
     const recapRows = sortedAccounts.map((account) => {
         const sumasDebe = account.entries.reduce((s, e) => s + e.debit, 0);
@@ -296,7 +300,7 @@ const buildBalanceComprobacionSheet = (
         const balance = sumasDebe - sumasHaber;
         const saldoDeudor = balance > 0 ? balance : 0;
         const saldoAcreedor = balance < 0 ? Math.abs(balance) : 0;
-        return { name: account.accountName, sumasDebe, sumasHaber, saldoDeudor, saldoAcreedor };
+        return { code: account.accountCode, name: account.accountName, sumasDebe, sumasHaber, saldoDeudor, saldoAcreedor };
     });
 
     const totals = recapRows.reduce(
@@ -309,9 +313,10 @@ const buildBalanceComprobacionSheet = (
         { sumasDebe: 0, sumasHaber: 0, saldoDeudor: 0, saldoAcreedor: 0 }
     );
 
-    // ── Column definitions (7 cols total) ─────────────────────────────────────
+    // ── Column definitions ─────────────────────────────────────────────────────
     ws.columns = [
         { header: '', key: 'no', width: 6 },
+        { header: 'Código', key: 'code', width: 16 },
         { header: 'Cuenta', key: 'name', width: 38 },
         { header: 'Sumas — Debe', key: 'sumasDebe', width: 18, style: { numFmt: QTZ_FMT } },
         { header: 'Sumas — Haber', key: 'sumasHaber', width: 18, style: { numFmt: QTZ_FMT } },
@@ -321,7 +326,7 @@ const buildBalanceComprobacionSheet = (
 
     // ── Row 1: Main header ────────────────────────────────────────────────────
     const mainHeaderRow = ws.getRow(1);
-    mainHeaderRow.values = ['#', 'CUENTA', 'SUMAS — DEBE', 'SUMAS — HABER', 'SALDO DEUDOR', 'SALDO ACREEDOR'];
+    mainHeaderRow.values = ['#', 'CÓDIGO', 'CUENTA', 'SUMAS — DEBE', 'SUMAS — HABER', 'SALDO DEUDOR', 'SALDO ACREEDOR'];
     styleHeaderRow(mainHeaderRow);
 
     // Center-align the numeric headers
@@ -333,6 +338,7 @@ const buildBalanceComprobacionSheet = (
     recapRows.forEach((row, idx) => {
         const dataRow = ws.addRow({
             no: idx + 1,
+            code: row.code,
             name: row.name,
             sumasDebe: row.sumasDebe > 0 ? row.sumasDebe : null,
             sumasHaber: row.sumasHaber > 0 ? row.sumasHaber : null,

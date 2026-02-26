@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import { JournalEntry, ParseResult, ProcessingError } from '../types';
 import { HEADER_CANDIDATES } from '../utils/constants';
 import { filterGlosaEntries } from './watchdog';
+import { UserMode } from '../types';
 
 // Internal types for the parser state machine
 interface ParserState {
@@ -181,7 +182,7 @@ const inferColumns = (data: any[][]): ColumnMapping | null => {
 /**
  * Main Logic: Block-based Parser
  */
-const processSheet = (data: any[][]): ParseResult => {
+const processSheet = (data: any[][], mode: UserMode): ParseResult => {
   const errors: ProcessingError[] = [];
   const entries: JournalEntry[] = [];
 
@@ -189,24 +190,37 @@ const processSheet = (data: any[][]): ParseResult => {
   let headerRowIndex = -1;
   let mapping: ColumnMapping | null = null;
 
-  // Search logic for headers
-  for (let i = 0; i < Math.min(data.length, 20); i++) {
-    const row = data[i];
-    if (!row) continue;
-    const map = mapColumns(row);
-    // Strict Check: To minimize false positives (like identifying a data row as header),
-    // we require at least 3 standard columns to be identified.
-    if (map) {
-      let matchCount = 0;
-      if (map.date !== -1) matchCount++;
-      if (map.debit !== -1) matchCount++;
-      if (map.credit !== -1) matchCount++;
-      if (map.concept !== -1) matchCount++;
-
-      if (matchCount >= 3) {
+  if (mode === 'Bancaria') {
+    // Modo Bancaria: Formato estricto (A=Partida, B=Fecha, C=Código, D=Nombre, E=Debe, F=Haber)
+    mapping = { date: 1, code: 2, concept: 3, debit: 4, credit: 5 };
+    // Intentar encontrar si hay fila de encabezado revisando primeras filas
+    for (let i = 0; i < Math.min(data.length, 5); i++) {
+      const row = data[i];
+      if (!row) continue;
+      const map = mapColumns(row);
+      if (map && map.date !== -1 && map.debit !== -1) {
         headerRowIndex = i;
-        mapping = map;
         break;
+      }
+    }
+  } else {
+    // Search logic for headers (Práctica)
+    for (let i = 0; i < Math.min(data.length, 20); i++) {
+      const row = data[i];
+      if (!row) continue;
+      const map = mapColumns(row);
+      if (map) {
+        let matchCount = 0;
+        if (map.date !== -1) matchCount++;
+        if (map.debit !== -1) matchCount++;
+        if (map.credit !== -1) matchCount++;
+        if (map.concept !== -1) matchCount++;
+
+        if (matchCount >= 3) {
+          headerRowIndex = i;
+          mapping = map;
+          break;
+        }
       }
     }
   }
@@ -295,16 +309,21 @@ const processSheet = (data: any[][]): ParseResult => {
     // --- DETECTOR LOGIC ---
 
     // A. DETECT PARTIDA START
-    // Scan first 5 columns for "Partida/p.X" marker.
-    // The marker might be in a different column than the concept.
     let partidaMatch: RegExpMatchArray | null = null;
-    for (let c = 0; c < Math.min(row.length, 5); c++) {
-      const cellVal = String(row[c] || '').trim();
-      // Matches "Partida 1", "Partida n", "Partida Inicial", "p.1", "P.1", "p 1"
+    if (mode === 'Bancaria') {
+      // En Bancaria, la partida está en la columna A
+      const cellVal = String(row[0] || '').trim();
       const match = cellVal.match(/^(?:Partida|Asiento|p\.?)\s*([a-zA-Z0-9\.-]+)/i);
-      if (match) {
-        partidaMatch = match;
-        break;
+      if (match) partidaMatch = match;
+    } else {
+      // Scan first 5 columns for "Partida/p.X" marker.
+      for (let c = 0; c < Math.min(row.length, 5); c++) {
+        const cellVal = String(row[c] || '').trim();
+        const match = cellVal.match(/^(?:Partida|Asiento|p\.?)\s*([a-zA-Z0-9\.-]+)/i);
+        if (match) {
+          partidaMatch = match;
+          break;
+        }
       }
     }
 
@@ -339,14 +358,14 @@ const processSheet = (data: any[][]): ParseResult => {
 
     if (hasAmount) {
       let cleanName = conceptStr.replace(/^[aA]:\s*/, '').trim();
-      // If name is empty but has amount, might be data issue, but we'll take it if we have a code
-      // If no name and no code, skip? 
-      if (!cleanName && !rawCode) continue;
 
       let code = cleanName;
-      if (rawCode) {
+      if (rawCode !== undefined && rawCode !== null && String(rawCode).trim() !== '') {
         code = String(rawCode).trim();
       }
+
+      // If name is empty but has amount, might be data issue, but we'll take it if we have a code
+      if (!cleanName && !rawCode) continue;
 
       // ORPHAN DATA GUARD: If we find an account but haven't seen a "Partida" header yet,
       // assume this is Partida 1.
@@ -367,11 +386,20 @@ const processSheet = (data: any[][]): ParseResult => {
     // D. DETECT GLOSA LINE
     // No amounts, has text
     if (!hasAmount && conceptStr.length > 0) {
+      // En modo bancario, si tiene código explícito pero no tiene montos, 
+      // es una cuenta estructural padre. No es una glosa. Se ignora.
+      if (mode === 'Bancaria' && rawCode && String(rawCode).trim() !== '') {
+        continue;
+      }
       state.bufferGlosa.push(conceptStr);
     }
   }
 
   flushBuffer();
+
+  if (errors.length > 0 && mode === 'Bancaria') {
+    return { success: false, errors };
+  }
 
   if (entries.length === 0) {
     return {
@@ -387,7 +415,7 @@ const processSheet = (data: any[][]): ParseResult => {
   return { success: true, data: entries };
 };
 
-export const parseFile = async (file: File): Promise<ParseResult> => {
+export const parseFile = async (file: File, mode: UserMode): Promise<ParseResult> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
 
@@ -420,7 +448,7 @@ export const parseFile = async (file: File): Promise<ParseResult> => {
           return;
         }
 
-        const result = processSheet(aoa);
+        const result = processSheet(aoa, mode);
 
         // ═══ WATCHDOG: Primary interception point ═══
         // Filter out entries whose accountName matches a glosa pattern.

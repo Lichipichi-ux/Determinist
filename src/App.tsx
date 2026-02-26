@@ -3,7 +3,7 @@ import { BookOpen, RefreshCcw, AlertOctagon, CheckCircle2, Moon, Sun, ArrowLeft,
 import FileUpload from './components/FileUpload';
 import LedgerView from './components/LedgerView';
 import ChartSelector from './components/ChartSelector';
-import { AccountLedger, JournalEntry, ParseResult, ProcessingError, WatchdogAlert } from './types';
+import { AccountLedger, JournalEntry, ParseResult, ProcessingError, WatchdogAlert, UserMode } from './types';
 import { generateLedger } from './services/ledgerService';
 import { isGlosa, filterGlosaEntries, createBlockedOperationAlert } from './services/watchdog';
 
@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const [errors, setErrors] = useState<ProcessingError[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [watchdogAlerts, setWatchdogAlerts] = useState<WatchdogAlert[]>([]);
+  const [userMode, setUserMode] = useState<UserMode | null>(null);
 
   // Initialize theme based on system preference
   useEffect(() => {
@@ -51,8 +52,15 @@ const App: React.FC = () => {
       setWatchdogAlerts(prev => [...prev, ...alerts]);
     }
 
-    const generatedLedger = generateLedger(clean);
-    setLedgerData(generatedLedger);
+    if (!userMode) return;
+
+    const { ledgerMap, newAlerts } = generateLedger(clean, userMode);
+
+    if (newAlerts.length > 0) {
+      setWatchdogAlerts(prev => [...prev, ...newAlerts]);
+    }
+
+    setLedgerData(ledgerMap);
     setJournalEntries(clean);
     setCurrentFileName(fileName);
     setErrors([]);
@@ -66,6 +74,7 @@ const App: React.FC = () => {
     setCurrentFileName('');
     setErrors([]);
     setWatchdogAlerts([]);
+    setUserMode(null);
   };
 
   const handleUpdateEntry = (accountCode: string, entryId: string, field: 'debit' | 'credit', newValue: number) => {
@@ -109,7 +118,9 @@ const App: React.FC = () => {
       const newAccount = {
         ...account,
         entries: newEntries,
-        finalBalance: runningBalance
+        finalBalance: runningBalance,
+        totalDebit: newEntries.reduce((sum, e) => sum + e.debit, 0),
+        totalCredit: newEntries.reduce((sum, e) => sum + e.credit, 0)
       };
 
       newData[accountCode] = newAccount;
@@ -151,6 +162,8 @@ const App: React.FC = () => {
           accountName: newAccountName,
           entries: [],
           finalBalance: 0,
+          totalDebit: 0,
+          totalCredit: 0,
           firstLine: 0
         };
         // Insert into the array at the specific index (targetOrder - 1)
@@ -219,7 +232,9 @@ const App: React.FC = () => {
       newData[originalAccountCode] = {
         ...originalAccount,
         entries: updatedOriginalEntries,
-        finalBalance: runBalOrig
+        finalBalance: runBalOrig,
+        totalDebit: updatedOriginalEntries.reduce((sum, e) => sum + e.debit, 0),
+        totalCredit: updatedOriginalEntries.reduce((sum, e) => sum + e.credit, 0)
       };
 
       // Update New Account
@@ -249,7 +264,9 @@ const App: React.FC = () => {
       newData[newAccountCode] = {
         ...targetAcc,
         entries: updatedNewEntries,
-        finalBalance: runBalNew
+        finalBalance: runBalNew,
+        totalDebit: updatedNewEntries.reduce((sum, e) => sum + e.debit, 0),
+        totalCredit: updatedNewEntries.reduce((sum, e) => sum + e.credit, 0)
       };
 
       return newData;
@@ -352,7 +369,24 @@ const App: React.FC = () => {
                   <p className="text-obsidian/60 dark:text-seashell/60 text-sm mb-10 max-w-xl mx-auto">
                     Cargue el archivo fuente del <span className="font-semibold text-denim">Libro Diario</span>. El sistema ejecutará validaciones estructurales estrictas y generará el Libro Mayor de forma determinista.
                   </p>
-                  <FileUpload onDataLoaded={handleDataLoaded} />
+
+                  {!userMode ? (
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+                      <button onClick={() => setUserMode('Practica')} className="px-6 py-4 border-2 border-denim text-denim hover:bg-denim/10 rounded-sm font-bold uppercase tracking-widest text-sm transition-all shadow-sm">
+                        Práctica Supervisada
+                      </button>
+                      <button onClick={() => setUserMode('Bancaria')} className="px-6 py-4 border-2 border-denim bg-denim text-white hover:bg-denim/90 rounded-sm font-bold uppercase tracking-widest text-sm transition-all shadow-sm">
+                        Contabilidad Bancaria
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-6 inline-flex border border-denim/30 bg-denim/10 text-denim px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">
+                        Modo Activo: {userMode === 'Practica' ? 'Práctica Supervisada' : 'Contabilidad Bancaria'}
+                      </div>
+                      <FileUpload onDataLoaded={handleDataLoaded} mode={userMode} />
+                    </>
+                  )}
                 </div>
 
                 {errors.length > 0 && (

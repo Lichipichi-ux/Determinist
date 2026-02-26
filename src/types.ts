@@ -20,8 +20,12 @@ export interface AccountLedger {
   accountName: string;
   entries: LedgerLine[];
   finalBalance: number;
+  totalDebit: number;
+  totalCredit: number;
   firstLine: number; // Order of appearance
 }
+
+export type UserMode = 'Practica' | 'Bancaria';
 
 export interface ProcessingError {
   line: number;

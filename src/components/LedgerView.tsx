@@ -253,6 +253,15 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, journalEn
   );
 
   const handleGlobalExport = async () => {
+    // ═══ WATCHDOG: Validar Cuadre Global antes de Exportar ═══
+    const totalDebe = Object.values(ledgerData).reduce((sum, acc) => sum + acc.totalDebit, 0);
+    const totalHaber = Object.values(ledgerData).reduce((sum, acc) => sum + acc.totalCredit, 0);
+
+    if (Math.abs(totalDebe - totalHaber) > 0.05) {
+      alert(`Bloqueo de Seguridad Watchdog:\n\nEl sistema no cuadra globalmente.\nDebe: ${CURRENCY_FORMAT.format(totalDebe)}\nHaber: ${CURRENCY_FORMAT.format(totalHaber)}\n\nDiferencia: ${CURRENCY_FORMAT.format(Math.abs(totalDebe - totalHaber))}`);
+      return;
+    }
+
     setIsExporting(true);
     try {
       // Small delay to allow React to re-render the loading state

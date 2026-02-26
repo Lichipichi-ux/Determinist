@@ -1,13 +1,14 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, FileType, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { parseFile } from '../services/parserService';
-import { ParseResult } from '../types';
+import { ParseResult, UserMode } from '../types';
 
 interface FileUploadProps {
   onDataLoaded: (result: ParseResult, fileName: string) => void;
+  mode: UserMode;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded }) => {
+const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded, mode }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -38,7 +39,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded }) => {
     }
 
     // Call Parser Service
-    const result = await parseFile(file);
+    const result = await parseFile(file, mode);
 
     // Simulate a small delay for better UX (perception of processing)
     setTimeout(() => {

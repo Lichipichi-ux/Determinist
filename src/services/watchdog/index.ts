@@ -115,3 +115,6 @@ export {
     guardEntry,
 } from './glosaEngine';
 export type { FilterResult } from './glosaEngine';
+
+// ─── Structural Filter ───────────────────────────────────────────────
+export { filterStructuralAccounts } from './structuralFilter';
