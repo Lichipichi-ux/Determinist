@@ -203,9 +203,16 @@ const processSheet = (data: any[][], mode: UserMode): ParseResult => {
       if (map.credit !== -1) matchCount++;
       if (map.concept !== -1) matchCount++;
 
-      // Req mínimo de columnas: concepto + debe o haber (pero priorizamos código si es bancaria)
+      // Req mínimo de columnas: concepto + debe o haber (priorizamos código si es bancaria)
       if (matchCount >= 2 && map.concept !== -1 && (map.debit !== -1 || map.credit !== -1)) {
         headerRowIndex = i;
+
+        // En Bancaria o si está estructurado sin header claro de "Código", asumimos que
+        // la columna inmediatamente anterior a "Concepto" suele ser el código si map.code es -1.
+        if (map.code === -1 && map.concept > 0) {
+          map.code = map.concept - 1;
+        }
+
         mapping = map;
         break;
       }
@@ -339,13 +346,26 @@ const processSheet = (data: any[][], mode: UserMode): ParseResult => {
     if (hasAmount) {
       let cleanName = conceptStr.replace(/^[aA]:\s*/, '').trim();
 
-      let code = cleanName;
+      // En bancaria, SI O SI debemos extraer el código.
+      // Si la inferencia falló, buscamos en rawCode (lo que determinó el mapper)
+      // O si el user borró A y B, la columna código es pre-concepto.
+      let code = cleanName; // fallback inicial
+
       if (rawCode !== undefined && rawCode !== null && String(rawCode).trim() !== '') {
         code = String(rawCode).trim();
+      } else if (mode === 'Bancaria') {
+        // Fallback robusto para encontrar el código si la cabecera falló.
+        // Si no hay rawCode, revisamos la columna justo antes del concepto
+        if (mapping && mapping.concept > 0) {
+          const potentialCode = row[mapping.concept - 1];
+          if (potentialCode !== undefined && potentialCode !== null && String(potentialCode).trim() !== '') {
+            code = String(potentialCode).trim();
+          }
+        }
       }
 
       // If name is empty but has amount, might be data issue, but we'll take it if we have a code
-      if (!cleanName && !rawCode) continue;
+      if (!cleanName && !code) continue;
 
       // ORPHAN DATA GUARD: If we find an account but haven't seen a "Partida" header yet,
       // assume this is Partida 1.
