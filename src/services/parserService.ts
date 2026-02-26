@@ -190,37 +190,24 @@ const processSheet = (data: any[][], mode: UserMode): ParseResult => {
   let headerRowIndex = -1;
   let mapping: ColumnMapping | null = null;
 
-  if (mode === 'Bancaria') {
-    // Modo Bancaria: Formato estricto (A=Partida, B=Fecha, C=Código, D=Nombre, E=Debe, F=Haber)
-    mapping = { date: 1, code: 2, concept: 3, debit: 4, credit: 5 };
-    // Intentar encontrar si hay fila de encabezado revisando primeras filas
-    for (let i = 0; i < Math.min(data.length, 5); i++) {
-      const row = data[i];
-      if (!row) continue;
-      const map = mapColumns(row);
-      if (map && map.date !== -1 && map.debit !== -1) {
-        headerRowIndex = i;
-        break;
-      }
-    }
-  } else {
-    // Search logic for headers (Práctica)
-    for (let i = 0; i < Math.min(data.length, 20); i++) {
-      const row = data[i];
-      if (!row) continue;
-      const map = mapColumns(row);
-      if (map) {
-        let matchCount = 0;
-        if (map.date !== -1) matchCount++;
-        if (map.debit !== -1) matchCount++;
-        if (map.credit !== -1) matchCount++;
-        if (map.concept !== -1) matchCount++;
+  // Intentar encontrar si hay fila de encabezado revisando primeras filas
+  for (let i = 0; i < Math.min(data.length, 20); i++) {
+    const row = data[i];
+    if (!row) continue;
+    const map = mapColumns(row);
+    if (map) {
+      let matchCount = 0;
+      if (map.date !== -1) matchCount++;
+      if (map.code !== -1) matchCount++;
+      if (map.debit !== -1) matchCount++;
+      if (map.credit !== -1) matchCount++;
+      if (map.concept !== -1) matchCount++;
 
-        if (matchCount >= 3) {
-          headerRowIndex = i;
-          mapping = map;
-          break;
-        }
+      // Req mínimo de columnas: concepto + debe o haber (pero priorizamos código si es bancaria)
+      if (matchCount >= 2 && map.concept !== -1 && (map.debit !== -1 || map.credit !== -1)) {
+        headerRowIndex = i;
+        mapping = map;
+        break;
       }
     }
   }
@@ -234,7 +221,7 @@ const processSheet = (data: any[][], mode: UserMode): ParseResult => {
         success: false,
         errors: [{
           line: 0,
-          message: 'No se identificó la estructura del Libro Diario. Asegúrese de tener columnas de texto y numéricas claras.',
+          message: 'No se identificó la estructura de columnas. Verifique tener columnas legibles para: Código, Cuenta, Debe y Haber.',
           type: 'STRUCTURAL'
         }]
       };
@@ -310,20 +297,13 @@ const processSheet = (data: any[][], mode: UserMode): ParseResult => {
 
     // A. DETECT PARTIDA START
     let partidaMatch: RegExpMatchArray | null = null;
-    if (mode === 'Bancaria') {
-      // En Bancaria, la partida está en la columna A
-      const cellVal = String(row[0] || '').trim();
+    // Escanear las primeras columnas buscando "Partida X" / "p.X" independientemente del modo
+    for (let c = 0; c < Math.min(row.length, 5); c++) {
+      const cellVal = String(row[c] || '').trim();
       const match = cellVal.match(/^(?:Partida|Asiento|p\.?)\s*([a-zA-Z0-9\.-]+)/i);
-      if (match) partidaMatch = match;
-    } else {
-      // Scan first 5 columns for "Partida/p.X" marker.
-      for (let c = 0; c < Math.min(row.length, 5); c++) {
-        const cellVal = String(row[c] || '').trim();
-        const match = cellVal.match(/^(?:Partida|Asiento|p\.?)\s*([a-zA-Z0-9\.-]+)/i);
-        if (match) {
-          partidaMatch = match;
-          break;
-        }
+      if (match) {
+        partidaMatch = match;
+        break;
       }
     }
 
@@ -406,7 +386,7 @@ const processSheet = (data: any[][], mode: UserMode): ParseResult => {
       success: false,
       errors: [{
         line: 0,
-        message: 'No se encontraron asientos contables. Verifique que use "Partida X" o "p.X" para iniciar bloques.',
+        message: 'No se encontraron filas con montos válidos en "Debe" o "Haber".',
         type: 'FORMAT'
       }]
     };
