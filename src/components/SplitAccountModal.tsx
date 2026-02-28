@@ -388,22 +388,21 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                         </div>
                     )}
 
-                        {/* New Account Name Input */}
-                        <div>
-                            <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
-                                Nombre de la nueva cuenta
-                            </label>
-                            <input
-                                type="text"
-                                value={newAccountName}
-                                onChange={(e) => {
-                                    setNewAccountName(e.target.value);
-                                    setError(null);
-                                }}
-                                className="w-full px-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all text-sm font-medium text-obsidian dark:text-seashell"
-                                placeholder="Ej. Cuotas patronales Administración"
-                            />
-                        </div>
+                    {/* New Account Name Input */}
+                    <div>
+                        <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
+                            Nombre de la nueva cuenta
+                        </label>
+                        <input
+                            type="text"
+                            value={newAccountName}
+                            onChange={(e) => {
+                                setNewAccountName(e.target.value);
+                                setError(null);
+                            }}
+                            className="w-full px-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all text-sm font-medium text-obsidian dark:text-seashell"
+                            placeholder="Ej. Cuotas patronales Administración"
+                        />
                     </div>
 
                     {/* Error Message */}
