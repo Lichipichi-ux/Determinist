@@ -20,6 +20,9 @@ const CRITICAL_KEYWORDS = [
 
     // Departments - mutually exclusive
     ['ADMINISTRACION', 'ADMIN', 'VENTAS', 'SALA DE VENTAS', 'FABRICA', 'FÁBRICA', 'OFICINA', 'PRODUCCION'],
+
+    // Debit/Credit nature - mutually exclusive
+    ['DEBITO', 'CREDITO', 'DÉBITO', 'CRÉDITO', 'DEUDOR', 'ACREEDOR'],
 ];
 
 /**
@@ -84,7 +87,7 @@ const extractCriticalKeywords = (accountName: string): Set<string> => {
  * Checks if two account names have conflicting critical keywords.
  * Returns true if they have different keywords from the same category.
  */
-const hasKeywordConflict = (a: string, b: string): boolean => {
+export const hasKeywordConflict = (a: string, b: string): boolean => {
     const keywordsA = extractCriticalKeywords(a);
     const keywordsB = extractCriticalKeywords(b);
 
