@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertCircle, ArrowRight, ListOrdered } from 'lucide-react';
+import { X, AlertCircle, ArrowRight, ListOrdered, CheckCircle2, Circle } from 'lucide-react';
 import { CURRENCY_FORMAT } from '../utils/constants';
+import { LedgerLine } from '../types';
 
 interface SplitAccountModalProps {
     isOpen: boolean;
@@ -9,7 +10,10 @@ interface SplitAccountModalProps {
     currentAccountName: string;
     currentBalance: number;
     totalAccounts: number;
+    entries?: LedgerLine[]; // NEW: Para permitir selección de múltiples movimientos
 }
+
+type SplitMode = 'AMOUNT' | 'ENTRIES';
 
 const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
     isOpen,
@@ -18,12 +22,17 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
     currentAccountName,
     currentBalance,
     totalAccounts,
+    entries = [],
 }) => {
+    const [splitMode, setSplitMode] = useState<SplitMode>('AMOUNT');
     const [amount, setAmount] = useState<string>('');
     const [newAccountName, setNewAccountName] = useState('');
     const [side, setSide] = useState<'DEBIT' | 'CREDIT' | null>(null);
     const [targetOrder, setTargetOrder] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
+
+    // NEW: Estado para selección de múltiples movimientos
+    const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (isOpen) {
@@ -32,54 +41,96 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
             setSide(null);
             setTargetOrder((totalAccounts + 1).toString());
             setError(null);
+            setSelectedEntries(new Set());
+
+            // Detectar modo automáticamente: si hay movimientos, mostrar opción de seleccionar
+            if (entries && entries.length > 0) {
+                setSplitMode('ENTRIES');
+            } else {
+                setSplitMode('AMOUNT');
+            }
         }
-    }, [isOpen, totalAccounts]);
+    }, [isOpen, totalAccounts, entries]);
+
+    const handleToggleEntry = (entryId: string) => {
+        const newSelected = new Set(selectedEntries);
+        if (newSelected.has(entryId)) {
+            newSelected.delete(entryId);
+        } else {
+            newSelected.add(entryId);
+        }
+        setSelectedEntries(newSelected);
+    };
+
+    const calculateSelectedAmount = (): number => {
+        return entries
+            .filter(e => selectedEntries.has(e.id))
+            .reduce((sum, e) => {
+                // Detectar si es deudor o acreedor basado en el monto
+                return sum + (e.debit > 0 ? e.debit : e.credit);
+            }, 0);
+    };
 
     if (!isOpen) return null;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const numAmount = parseFloat(amount);
-        const numOrder = parseInt(targetOrder, 10);
 
-        if (isNaN(numAmount) || numAmount <= 0) {
-            setError('Ingrese un monto válido mayor a 0.');
-            return;
+        let finalAmount = 0;
+        let finalSide: 'DEBIT' | 'CREDIT' | null = side;
+
+        if (splitMode === 'AMOUNT') {
+            finalAmount = parseFloat(amount);
+            if (isNaN(finalAmount) || finalAmount <= 0) {
+                setError('Ingrese un monto válido mayor a 0.');
+                return;
+            }
+        } else {
+            // Modo ENTRIES: sumar todos los movimientos seleccionados
+            if (selectedEntries.size === 0) {
+                setError('Seleccione al menos un movimiento.');
+                return;
+            }
+            finalAmount = calculateSelectedAmount();
+
+            // Detectar automáticamente el lado basado en los movimientos seleccionados
+            const firstEntry = entries.find(e => selectedEntries.has(e.id));
+            if (firstEntry) {
+                finalSide = firstEntry.debit > 0 ? 'DEBIT' : 'CREDIT';
+            }
         }
-
-
-        // Validation removed to allow correcting zero-balance accounts (User Request)
-        // if (numAmount > Math.abs(currentBalance)) { ... }
-
 
         if (!newAccountName.trim()) {
             setError('Ingrese un nombre para la nueva cuenta.');
             return;
         }
 
-        if (!side) {
+        if (!finalSide) {
             setError('Seleccione si el monto es Deudor o Acreedor.');
             return;
         }
 
+        const numOrder = parseInt(targetOrder, 10);
         if (isNaN(numOrder) || numOrder < 1) {
             setError(`El orden debe ser mayor a 0.`);
             return;
         }
 
-        onConfirm(numAmount, newAccountName.trim(), side, numOrder);
+        onConfirm(finalAmount, newAccountName.trim(), finalSide, numOrder);
         onClose();
     };
 
+    const hasEntries = entries && entries.length > 0;
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/40 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 shadow-2xl rounded-xl w-full max-w-md overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 shadow-2xl rounded-xl w-full max-w-2xl overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
 
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-obsidian/10 dark:border-white/10 flex items-center justify-between bg-seashell/50 dark:bg-white/5">
+                <div className="px-6 py-4 border-b border-obsidian/10 dark:border-white/10 flex items-center justify-between bg-seashell/50 dark:bg-white/5 sticky top-0">
                     <h3 className="text-lg font-bold text-obsidian dark:text-seashell flex items-center gap-2">
                         <span className="w-2 h-6 bg-denim rounded-full"></span>
-                        Dividir Cuenta
+                        Dividir / Reasignar Cuenta
                     </h3>
                     <button
                         onClick={onClose}
@@ -88,6 +139,42 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                         <X className="w-5 h-5" />
                     </button>
                 </div>
+
+                {/* Mode Selector - NEW */}
+                {hasEntries && (
+                    <div className="px-6 pt-4 pb-2">
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSplitMode('AMOUNT');
+                                    setError(null);
+                                }}
+                                className={`flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+                                    splitMode === 'AMOUNT'
+                                        ? 'bg-denim text-white shadow-md'
+                                        : 'bg-obsidian/5 dark:bg-white/5 text-obsidian/60 dark:text-seashell/60 hover:bg-obsidian/10'
+                                }`}
+                            >
+                                💰 Por Monto
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSplitMode('ENTRIES');
+                                    setError(null);
+                                }}
+                                className={`flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+                                    splitMode === 'ENTRIES'
+                                        ? 'bg-denim text-white shadow-md'
+                                        : 'bg-obsidian/5 dark:bg-white/5 text-obsidian/60 dark:text-seashell/60 hover:bg-obsidian/10'
+                                }`}
+                            >
+                                📋 Seleccionar Movimientos
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Content */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -102,121 +189,204 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                         </div>
                     </div>
 
-                    {/* Side Selector (Deudor/Acreedor) - REQUIRED */}
-                    <div className="bg-gradient-to-br from-denim/5 to-denim/10 border border-denim/20 rounded-lg p-4">
-                        <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/70 dark:text-seashell/70 mb-3">
-                            Origen del monto <span className="text-red-500">*</span>
-                        </label>
-                        <div className="space-y-2">
-                            {/* Debit Radio Button */}
-                            <label
-                                className={`
-                                    flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all
-                                    ${side === 'DEBIT'
-                                        ? 'border-denim bg-denim/10 shadow-sm'
-                                        : 'border-obsidian/20 dark:border-white/20 bg-white dark:bg-obsidian hover:border-denim/50 hover:bg-denim/5'
-                                    }
-                                `}
-                            >
-                                <input
-                                    type="radio"
-                                    name="side"
-                                    value="DEBIT"
-                                    checked={side === 'DEBIT'}
-                                    onChange={() => {
-                                        setSide('DEBIT');
-                                        setError(null);
-                                    }}
-                                    className="w-4 h-4 text-denim focus:ring-denim focus:ring-2"
-                                />
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-bold text-obsidian dark:text-seashell">🔘 Deudor</span>
+                    {/* ENTRIES MODE: Movement Selection */}
+                    {splitMode === 'ENTRIES' && hasEntries && (
+                        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg p-4">
+                            <div className="text-xs uppercase tracking-widest text-blue-700 dark:text-blue-300 font-bold mb-3">
+                                Selecciona los movimientos a reasignar
+                            </div>
+                            <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                                {entries.map((entry, idx) => (
+                                    <label
+                                        key={entry.id}
+                                        className="flex items-center gap-3 p-3 bg-white dark:bg-obsidian rounded-lg border border-blue-100 dark:border-blue-900/30 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/5 transition-colors"
+                                    >
+                                        <div
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                handleToggleEntry(entry.id);
+                                            }}
+                                            className="flex-shrink-0"
+                                        >
+                                            {selectedEntries.has(entry.id) ? (
+                                                <CheckCircle2 className="w-5 h-5 text-denim" />
+                                            ) : (
+                                                <Circle className="w-5 h-5 text-obsidian/30 dark:text-seashell/30" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between items-center gap-2">
+                                                <span className="text-xs text-obsidian/60 dark:text-seashell/60">{entry.date}</span>
+                                                <span className="text-xs font-mono text-obsidian/50 dark:text-seashell/50">Asiento: {entry.entryId}</span>
+                                            </div>
+                                            <p className="text-sm text-obsidian dark:text-seashell font-medium truncate">{entry.description}</p>
+                                            <div className="flex justify-between gap-2 mt-1">
+                                                {entry.debit > 0 && (
+                                                    <span className="text-xs font-mono text-denim font-bold">D: {CURRENCY_FORMAT.format(entry.debit)}</span>
+                                                )}
+                                                {entry.credit > 0 && (
+                                                    <span className="text-xs font-mono text-red-600 dark:text-red-400 font-bold">H: {CURRENCY_FORMAT.format(entry.credit)}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </label>
+                                ))}
+                            </div>
+                            {selectedEntries.size > 0 && (
+                                <div className="mt-3 pt-3 border-t border-blue-100 dark:border-blue-900/30">
+                                    <div className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                                        Total a reasignar: {CURRENCY_FORMAT.format(calculateSelectedAmount())}
                                     </div>
-                                    <p className="text-xs text-obsidian/60 dark:text-seashell/60 mt-1">
-                                        El monto proviene del lado del Debe
-                                    </p>
                                 </div>
-                            </label>
-
-                            {/* Credit Radio Button */}
-                            <label
-                                className={`
-                                    flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all
-                                    ${side === 'CREDIT'
-                                        ? 'border-denim bg-denim/10 shadow-sm'
-                                        : 'border-obsidian/20 dark:border-white/20 bg-white dark:bg-obsidian hover:border-denim/50 hover:bg-denim/5'
-                                    }
-                                `}
-                            >
-                                <input
-                                    type="radio"
-                                    name="side"
-                                    value="CREDIT"
-                                    checked={side === 'CREDIT'}
-                                    onChange={() => {
-                                        setSide('CREDIT');
-                                        setError(null);
-                                    }}
-                                    className="w-4 h-4 text-denim focus:ring-denim focus:ring-2"
-                                />
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-bold text-obsidian dark:text-seashell">🔘 Acreedor</span>
-                                    </div>
-                                    <p className="text-xs text-obsidian/60 dark:text-seashell/60 mt-1">
-                                        El monto proviene del lado del Haber
-                                    </p>
-                                </div>
-                            </label>
+                            )}
                         </div>
-                    </div>
+                    )}
 
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            {/* Amount Input */}
-                            <div>
-                                <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
-                                    Monto a separar
-                                </label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30 dark:text-seashell/30 font-bold">Q</span>
+                    {/* Side Selector (Deudor/Acreedor) - REQUIRED for AMOUNT mode, auto for ENTRIES */}
+                    {splitMode === 'AMOUNT' && (
+                        <div className="bg-gradient-to-br from-denim/5 to-denim/10 border border-denim/20 rounded-lg p-4">
+                            <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/70 dark:text-seashell/70 mb-3">
+                                Origen del monto <span className="text-red-500">*</span>
+                            </label>
+                            <div className="space-y-2">
+                                {/* Debit Radio Button */}
+                                <label
+                                    className={`
+                                        flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all
+                                        ${side === 'DEBIT'
+                                            ? 'border-denim bg-denim/10 shadow-sm'
+                                            : 'border-obsidian/20 dark:border-white/20 bg-white dark:bg-obsidian hover:border-denim/50 hover:bg-denim/5'
+                                        }
+                                    `}
+                                >
                                     <input
-                                        type="number"
-                                        value={amount}
-                                        onChange={(e) => {
-                                            setAmount(e.target.value);
+                                        type="radio"
+                                        name="side"
+                                        value="DEBIT"
+                                        checked={side === 'DEBIT'}
+                                        onChange={() => {
+                                            setSide('DEBIT');
                                             setError(null);
                                         }}
-                                        className="w-full pl-8 pr-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian dark:text-seashell"
-                                        placeholder="0.00"
-                                        autoFocus
+                                        className="w-4 h-4 text-denim focus:ring-denim focus:ring-2"
                                     />
-                                </div>
-                            </div>
-
-                            {/* Order Input */}
-                            <div>
-                                <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
-                                    Orden
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-bold text-obsidian dark:text-seashell">🔘 Deudor</span>
+                                        </div>
+                                        <p className="text-xs text-obsidian/60 dark:text-seashell/60 mt-1">
+                                            El monto proviene del lado del Debe
+                                        </p>
+                                    </div>
                                 </label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30 dark:text-seashell/30 font-bold">#</span>
+
+                                {/* Credit Radio Button */}
+                                <label
+                                    className={`
+                                        flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all
+                                        ${side === 'CREDIT'
+                                            ? 'border-denim bg-denim/10 shadow-sm'
+                                            : 'border-obsidian/20 dark:border-white/20 bg-white dark:bg-obsidian hover:border-denim/50 hover:bg-denim/5'
+                                        }
+                                    `}
+                                >
                                     <input
-                                        type="number"
-                                        min="1"
-                                        step="1"
-                                        value={targetOrder}
-                                        onChange={(e) => {
-                                            setTargetOrder(e.target.value);
+                                        type="radio"
+                                        name="side"
+                                        value="CREDIT"
+                                        checked={side === 'CREDIT'}
+                                        onChange={() => {
+                                            setSide('CREDIT');
                                             setError(null);
                                         }}
-                                        className="w-full pl-8 pr-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian dark:text-seashell"
-                                        placeholder="#"
+                                        className="w-4 h-4 text-denim focus:ring-denim focus:ring-2"
                                     />
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-bold text-obsidian dark:text-seashell">🔘 Acreedor</span>
+                                        </div>
+                                        <p className="text-xs text-obsidian/60 dark:text-seashell/60 mt-1">
+                                            El monto proviene del lado del Haber
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Amount Input - AMOUNT mode only */}
+                    {splitMode === 'AMOUNT' && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* Amount Input */}
+                                <div>
+                                    <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
+                                        Monto a separar
+                                    </label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30 dark:text-seashell/30 font-bold">Q</span>
+                                        <input
+                                            type="number"
+                                            value={amount}
+                                            onChange={(e) => {
+                                                setAmount(e.target.value);
+                                                setError(null);
+                                            }}
+                                            className="w-full pl-8 pr-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian dark:text-seashell"
+                                            placeholder="0.00"
+                                            autoFocus
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Order Input */}
+                                <div>
+                                    <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
+                                        Orden
+                                    </label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30 dark:text-seashell/30 font-bold">#</span>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            step="1"
+                                            value={targetOrder}
+                                            onChange={(e) => {
+                                                setTargetOrder(e.target.value);
+                                                setError(null);
+                                            }}
+                                            className="w-full pl-8 pr-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian dark:text-seashell"
+                                            placeholder="#"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {/* Order Input - ENTRIES mode */}
+                    {splitMode === 'ENTRIES' && (
+                        <div>
+                            <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
+                                Orden de la nueva cuenta
+                            </label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30 dark:text-seashell/30 font-bold">#</span>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    value={targetOrder}
+                                    onChange={(e) => {
+                                        setTargetOrder(e.target.value);
+                                        setError(null);
+                                    }}
+                                    className="w-full pl-8 pr-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian dark:text-seashell"
+                                    placeholder="#"
+                                />
+                            </div>
+                        </div>
+                    )}
 
                         {/* New Account Name Input */}
                         <div>

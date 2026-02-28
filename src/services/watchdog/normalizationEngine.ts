@@ -83,8 +83,8 @@ const ABBREVIATION_MAP: Record<string, string> = {
     'ing.': 'ingeniero',
     'dr': 'doctor',
     'dr.': 'doctor',
-    'no.': 'numero',
-    'no': 'numero',
+    // CRITICAL: "no." and "no" are NOT normalized to "numero" because "NO" is semantically critical
+    // in accounting: "Acreedores NO comerciales" vs "Acreedores comerciales" are DIFFERENT accounts
     'núm': 'numero',
     'num': 'numero',
 };

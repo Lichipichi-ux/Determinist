@@ -561,6 +561,7 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, journalEn
                     onSplitAccount(currentAccount.accountCode, newName, amount, side, targetOrder);
                   }}
                   totalAccounts={accounts.length}
+                  entries={currentAccount.entries}
                 />
               )}
 
