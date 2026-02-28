@@ -23,6 +23,10 @@ const CRITICAL_KEYWORDS = [
 
     // Debit/Credit nature - mutually exclusive
     ['DEBITO', 'CREDITO', 'DÉBITO', 'CRÉDITO', 'DEUDOR', 'ACREEDOR'],
+
+    // Commercial nature - mutually exclusive
+    // Note: 'NO COMERCIAL' will be tested carefully below
+    ['COMERCIAL', 'COMERCIALES', 'NO COMERCIAL', 'NO COMERCIALES']
 ];
 
 /**
