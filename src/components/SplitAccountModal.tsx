@@ -124,17 +124,17 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/40 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-obsidian border border-obsidian/10 dark:border-white/10 shadow-2xl rounded-xl w-full max-w-2xl overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white  border border-obsidian/10  shadow-2xl rounded-xl w-full max-w-2xl overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
 
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-obsidian/10 dark:border-white/10 flex items-center justify-between bg-seashell/50 dark:bg-white/5 sticky top-0">
-                    <h3 className="text-lg font-bold text-obsidian dark:text-seashell flex items-center gap-2">
+                <div className="px-6 py-4 border-b border-obsidian/10  flex items-center justify-between bg-seashell/50  sticky top-0">
+                    <h3 className="text-lg font-bold text-obsidian  flex items-center gap-2">
                         <span className="w-2 h-6 bg-denim rounded-full"></span>
                         Dividir / Reasignar Cuenta
                     </h3>
                     <button
                         onClick={onClose}
-                        className="text-obsidian/40 hover:text-red-500 dark:text-seashell/40 dark:hover:text-red-400 transition-colors"
+                        className="text-obsidian/40 hover:text-red-500   transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -153,10 +153,10 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                                 className={`flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
                                     splitMode === 'AMOUNT'
                                         ? 'bg-denim text-white shadow-md'
-                                        : 'bg-obsidian/5 dark:bg-white/5 text-obsidian/60 dark:text-seashell/60 hover:bg-obsidian/10'
+                                        : 'bg-obsidian/5  text-obsidian/60  hover:bg-obsidian/10'
                                 }`}
                             >
-                                💰 Por Monto
+                                 Por Monto
                             </button>
                             <button
                                 type="button"
@@ -167,10 +167,10 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                                 className={`flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
                                     splitMode === 'ENTRIES'
                                         ? 'bg-denim text-white shadow-md'
-                                        : 'bg-obsidian/5 dark:bg-white/5 text-obsidian/60 dark:text-seashell/60 hover:bg-obsidian/10'
+                                        : 'bg-obsidian/5  text-obsidian/60  hover:bg-obsidian/10'
                                 }`}
                             >
-                                📋 Seleccionar Movimientos
+                                 Seleccionar Movimientos
                             </button>
                         </div>
                     </div>
@@ -182,24 +182,24 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                     {/* Info Card */}
                     <div className="bg-denim/5 border border-denim/10 rounded-lg p-4">
                         <div className="text-xs uppercase tracking-widest text-denim/70 font-bold mb-1">Cuenta Original</div>
-                        <div className="text-sm font-medium text-obsidian dark:text-seashell mb-2">{currentAccountName}</div>
+                        <div className="text-sm font-medium text-obsidian  mb-2">{currentAccountName}</div>
                         <div className="flex justify-between items-end">
-                            <span className="text-xs text-obsidian/50 dark:text-seashell/50">Saldo Actual:</span>
+                            <span className="text-xs text-obsidian/50 ">Saldo Actual:</span>
                             <span className="text-lg font-mono font-bold text-denim">{CURRENCY_FORMAT.format(currentBalance)}</span>
                         </div>
                     </div>
 
                     {/* ENTRIES MODE: Movement Selection */}
                     {splitMode === 'ENTRIES' && hasEntries && (
-                        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg p-4">
-                            <div className="text-xs uppercase tracking-widest text-blue-700 dark:text-blue-300 font-bold mb-3">
+                        <div className="bg-blue-50  border border-blue-100  rounded-lg p-4">
+                            <div className="text-xs uppercase tracking-widest text-blue-700  font-bold mb-3">
                                 Selecciona los movimientos a reasignar
                             </div>
                             <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                                 {entries.map((entry, idx) => (
                                     <label
                                         key={entry.id}
-                                        className="flex items-center gap-3 p-3 bg-white dark:bg-obsidian rounded-lg border border-blue-100 dark:border-blue-900/30 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/5 transition-colors"
+                                        className="flex items-center gap-3 p-3 bg-white  rounded-lg border border-blue-100  cursor-pointer hover:bg-blue-50  transition-colors"
                                     >
                                         <div
                                             onClick={(e) => {
@@ -211,21 +211,21 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                                             {selectedEntries.has(entry.id) ? (
                                                 <CheckCircle2 className="w-5 h-5 text-denim" />
                                             ) : (
-                                                <Circle className="w-5 h-5 text-obsidian/30 dark:text-seashell/30" />
+                                                <Circle className="w-5 h-5 text-obsidian/30 " />
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex justify-between items-center gap-2">
-                                                <span className="text-xs text-obsidian/60 dark:text-seashell/60">{entry.date}</span>
-                                                <span className="text-xs font-mono text-obsidian/50 dark:text-seashell/50">Asiento: {entry.entryId}</span>
+                                                <span className="text-xs text-obsidian/60 ">{entry.date}</span>
+                                                <span className="text-xs font-mono text-obsidian/50 ">Asiento: {entry.entryId}</span>
                                             </div>
-                                            <p className="text-sm text-obsidian dark:text-seashell font-medium truncate">{entry.description}</p>
+                                            <p className="text-sm text-obsidian  font-medium truncate">{entry.description}</p>
                                             <div className="flex justify-between gap-2 mt-1">
                                                 {entry.debit > 0 && (
                                                     <span className="text-xs font-mono text-denim font-bold">D: {CURRENCY_FORMAT.format(entry.debit)}</span>
                                                 )}
                                                 {entry.credit > 0 && (
-                                                    <span className="text-xs font-mono text-red-600 dark:text-red-400 font-bold">H: {CURRENCY_FORMAT.format(entry.credit)}</span>
+                                                    <span className="text-xs font-mono text-red-600  font-bold">H: {CURRENCY_FORMAT.format(entry.credit)}</span>
                                                 )}
                                             </div>
                                         </div>
@@ -233,8 +233,8 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                                 ))}
                             </div>
                             {selectedEntries.size > 0 && (
-                                <div className="mt-3 pt-3 border-t border-blue-100 dark:border-blue-900/30">
-                                    <div className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                                <div className="mt-3 pt-3 border-t border-blue-100 ">
+                                    <div className="text-sm font-bold text-blue-700 ">
                                         Total a reasignar: {CURRENCY_FORMAT.format(calculateSelectedAmount())}
                                     </div>
                                 </div>
@@ -245,7 +245,7 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                     {/* Side Selector (Deudor/Acreedor) - REQUIRED for AMOUNT mode, auto for ENTRIES */}
                     {splitMode === 'AMOUNT' && (
                         <div className="bg-gradient-to-br from-denim/5 to-denim/10 border border-denim/20 rounded-lg p-4">
-                            <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/70 dark:text-seashell/70 mb-3">
+                            <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/70  mb-3">
                                 Origen del monto <span className="text-red-500">*</span>
                             </label>
                             <div className="space-y-2">
@@ -255,7 +255,7 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                                         flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all
                                         ${side === 'DEBIT'
                                             ? 'border-denim bg-denim/10 shadow-sm'
-                                            : 'border-obsidian/20 dark:border-white/20 bg-white dark:bg-obsidian hover:border-denim/50 hover:bg-denim/5'
+                                            : 'border-obsidian/20  bg-white  hover:border-denim/50 hover:bg-denim/5'
                                         }
                                     `}
                                 >
@@ -272,11 +272,8 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                                     />
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-sm font-bold text-obsidian dark:text-seashell">🔘 Deudor</span>
+                                            <span className="text-sm font-bold text-obsidian "> Deudor</span>
                                         </div>
-                                        <p className="text-xs text-obsidian/60 dark:text-seashell/60 mt-1">
-                                            El monto proviene del lado del Debe
-                                        </p>
                                     </div>
                                 </label>
 
@@ -286,7 +283,7 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                                         flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all
                                         ${side === 'CREDIT'
                                             ? 'border-denim bg-denim/10 shadow-sm'
-                                            : 'border-obsidian/20 dark:border-white/20 bg-white dark:bg-obsidian hover:border-denim/50 hover:bg-denim/5'
+                                            : 'border-obsidian/20  bg-white  hover:border-denim/50 hover:bg-denim/5'
                                         }
                                     `}
                                 >
@@ -303,11 +300,8 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                                     />
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-sm font-bold text-obsidian dark:text-seashell">🔘 Acreedor</span>
+                                            <span className="text-sm font-bold text-obsidian "> Acreedor</span>
                                         </div>
-                                        <p className="text-xs text-obsidian/60 dark:text-seashell/60 mt-1">
-                                            El monto proviene del lado del Haber
-                                        </p>
                                     </div>
                                 </label>
                             </div>
@@ -320,11 +314,11 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                             <div className="grid grid-cols-2 gap-4">
                                 {/* Amount Input */}
                                 <div>
-                                    <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
+                                    <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60  mb-2">
                                         Monto a separar
                                     </label>
                                     <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30 dark:text-seashell/30 font-bold">Q</span>
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30  font-bold">Q</span>
                                         <input
                                             type="number"
                                             value={amount}
@@ -332,7 +326,7 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                                                 setAmount(e.target.value);
                                                 setError(null);
                                             }}
-                                            className="w-full pl-8 pr-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian dark:text-seashell"
+                                            className="w-full pl-8 pr-4 py-3 bg-white  border border-obsidian/20  rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian "
                                             placeholder="0.00"
                                             autoFocus
                                         />
@@ -341,11 +335,11 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
 
                                 {/* Order Input */}
                                 <div>
-                                    <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
+                                    <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60  mb-2">
                                         Orden
                                     </label>
                                     <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30 dark:text-seashell/30 font-bold">#</span>
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30  font-bold">#</span>
                                         <input
                                             type="number"
                                             min="1"
@@ -355,7 +349,7 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                                                 setTargetOrder(e.target.value);
                                                 setError(null);
                                             }}
-                                            className="w-full pl-8 pr-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian dark:text-seashell"
+                                            className="w-full pl-8 pr-4 py-3 bg-white  border border-obsidian/20  rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian "
                                             placeholder="#"
                                         />
                                     </div>
@@ -367,11 +361,11 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                     {/* Order Input - ENTRIES mode */}
                     {splitMode === 'ENTRIES' && (
                         <div>
-                            <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
+                            <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60  mb-2">
                                 Orden de la nueva cuenta
                             </label>
                             <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30 dark:text-seashell/30 font-bold">#</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian/30  font-bold">#</span>
                                 <input
                                     type="number"
                                     min="1"
@@ -381,7 +375,7 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                                         setTargetOrder(e.target.value);
                                         setError(null);
                                     }}
-                                    className="w-full pl-8 pr-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian dark:text-seashell"
+                                    className="w-full pl-8 pr-4 py-3 bg-white  border border-obsidian/20  rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all font-mono font-bold text-lg text-obsidian "
                                     placeholder="#"
                                 />
                             </div>
@@ -390,7 +384,7 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
 
                     {/* New Account Name Input */}
                     <div>
-                        <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60 dark:text-seashell/60 mb-2">
+                        <label className="block text-xs uppercase tracking-wider font-bold text-obsidian/60  mb-2">
                             Nombre de la nueva cuenta
                         </label>
                         <input
@@ -400,14 +394,14 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                                 setNewAccountName(e.target.value);
                                 setError(null);
                             }}
-                            className="w-full px-4 py-3 bg-white dark:bg-obsidian border border-obsidian/20 dark:border-white/20 rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all text-sm font-medium text-obsidian dark:text-seashell"
+                            className="w-full px-4 py-3 bg-white  border border-obsidian/20  rounded-lg focus:outline-none focus:border-denim focus:ring-1 focus:ring-denim transition-all text-sm font-medium text-obsidian "
                             placeholder="Ej. Cuotas patronales Administración"
                         />
                     </div>
 
                     {/* Error Message */}
                     {error && (
-                        <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-lg text-red-600 dark:text-red-400 text-xs">
+                        <div className="flex items-start gap-2 p-3 bg-red-50  border border-red-100  rounded-lg text-red-600  text-xs">
                             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                             <span>{error}</span>
                         </div>
@@ -418,7 +412,7 @@ const SplitAccountModal: React.FC<SplitAccountModalProps> = ({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 py-3 px-4 rounded-lg border border-obsidian/10 dark:border-white/10 text-obsidian/60 dark:text-seashell/60 font-bold text-sm hover:bg-obsidian/5 dark:hover:bg-white/5 transition-colors"
+                            className="flex-1 py-3 px-4 rounded-lg border border-obsidian/10  text-obsidian/60  font-bold text-sm hover:bg-obsidian/5  transition-colors"
                         >
                             Cancelar
                         </button>

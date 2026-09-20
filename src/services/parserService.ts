@@ -21,6 +21,7 @@ interface PartialEntry {
 }
 
 interface ColumnMapping {
+  partida?: number;
   date: number;
   debit: number;
   credit: number;
@@ -48,11 +49,23 @@ const mapColumns = (headers: any[]): ColumnMapping | null => {
   const code = findIndex(HEADER_CANDIDATES.CODE);
 
   // Critical columns must exist
-  if (date === -1 || debit === -1 || credit === -1 || concept === -1) {
+  if (debit === -1 || credit === -1 || concept === -1) {
     return null;
   }
 
-  return { date, debit, credit, concept, code };
+  const partida = lowerHeaders.findIndex(h => /^(?:(?:n[úu]mero|no\.?|n[.º°]+|#)\s*(?:de\s*)?)?(?:partida|asiento)(?:\s*(?:n[úu]mero|no\.?|n[.º°]+|#))?$/.test(h));
+  return { date, debit, credit, concept, code, partida };
+};
+
+/** A reference must contain a whole numeric identifier, never an account name. */
+const partidaDateSuffix = /\s+(?:fecha\s*:?\s*)?(\d{1,2}[\/-]\d{1,2}[\/-]\d{4}|\d{4}-\d{2}-\d{2})\s*$/i;
+
+export const normalizePartida = (value: unknown, allowBareNumber = false): string | null => {
+  const text = String(value ?? '').trim().replace(partidaDateSuffix, '').trim();
+  const marked = text.match(/^(?:(?:partida|part\.?|asiento|p\.?)\s*(?:(?:n[úu]mero|nro\.?|no\.?|n[.º°]+|#)\s*)?[:#-]?\s*|#\s*)(\d+)\s*[.:º°]?$/i);
+  const bare = allowBareNumber ? text.match(/^(\d+)$/) : null;
+  const digits = (marked || bare)?.[1];
+  return digits ? `Partida ${digits.replace(/^0+(?=\d)/, '')}` : null;
 };
 
 /**
@@ -182,7 +195,7 @@ const inferColumns = (data: any[][]): ColumnMapping | null => {
 /**
  * Main Logic: Block-based Parser
  */
-const processSheet = (data: any[][], mode: UserMode): ParseResult => {
+export const processSheet = (data: any[][], mode: UserMode): ParseResult => {
   const errors: ProcessingError[] = [];
   const entries: JournalEntry[] = [];
 
@@ -209,7 +222,7 @@ const processSheet = (data: any[][], mode: UserMode): ParseResult => {
 
         // En Bancaria o si está estructurado sin header claro de "Código", asumimos que
         // la columna inmediatamente anterior a "Concepto" suele ser el código si map.code es -1.
-        if (map.code === -1 && map.concept > 0) {
+        if (map.code === -1 && map.concept > 0 && map.concept - 1 !== map.date && map.concept - 1 !== map.partida) {
           map.code = map.concept - 1;
         }
 
@@ -303,26 +316,41 @@ const processSheet = (data: any[][], mode: UserMode): ParseResult => {
     // --- DETECTOR LOGIC ---
 
     // A. DETECT PARTIDA START
-    let partidaMatch: RegExpMatchArray | null = null;
-    // Escanear las primeras columnas buscando "Partida X" / "p.X" independientemente del modo
-    for (let c = 0; c < Math.min(row.length, 5); c++) {
-      const cellVal = String(row[c] || '').trim();
-      const match = cellVal.match(/^(?:Partida|Asiento|p\.?)\s*([a-zA-Z0-9\.-]+)/i);
-      if (match) {
-        partidaMatch = match;
-        break;
+    const referenceColumn = mapping.partida ?? -1;
+    let partidaId = referenceColumn >= 0 ? normalizePartida(row[referenceColumn], true) : null;
+    if (!partidaId) {
+      for (let c = 0; c < row.length; c++) {
+        if (c === mapping.debit || c === mapping.credit) continue;
+        // Account names on transaction rows are never references.
+        if (hasAmount && c === mapping.concept) continue;
+        partidaId = normalizePartida(row[c]);
+        // Excel templates often place the label and number in adjacent cells.
+        if (!partidaId && /^(?:partida|part\.?|asiento|p\.?|#)\s*$/i.test(String(row[c] ?? '').trim())) {
+          const next = row.slice(c + 1).find(value => String(value ?? '').trim() !== '');
+          if (/^\d+$/.test(String(next ?? '').trim())) partidaId = normalizePartida(`${row[c]} ${next}`);
+        }
+        if (partidaId) break;
       }
     }
+    // A bare number is a block header only when isolated (optionally with a date).
+    // Numeric codes next to account names and all monetary cells are excluded.
+    if (!partidaId && !hasAmount) {
+      const nonDateCells = row.map((value, column) => ({ value, column }))
+        .filter(({ value, column }) => column !== mapping.date && column !== mapping.debit && column !== mapping.credit && String(value ?? '').trim() !== '');
+      if (nonDateCells.length === 1) partidaId = normalizePartida(nonDateCells[0].value, true);
+    }
 
-    if (partidaMatch) {
+    if (partidaId) {
       // Flush previous block
-      flushBuffer();
+      if (partidaId !== state.currentPartidaId || !hasAmount) flushBuffer();
 
       // Start new block
-      state.currentPartidaId = `Partida ${partidaMatch[1]}`;
+      state.currentPartidaId = partidaId;
 
       // Update Date if present
-      const rowDate = parseExcelDate(rawDate);
+      const headerCell = row.find(value => normalizePartida(value, true) === partidaId);
+      const embeddedDate = String(headerCell ?? '').match(partidaDateSuffix)?.[1];
+      const rowDate = embeddedDate || (normalizePartida(rawDate, true) ? null : parseExcelDate(rawDate));
       if (rowDate) {
         state.currentDate = rowDate;
       }
@@ -356,7 +384,7 @@ const processSheet = (data: any[][], mode: UserMode): ParseResult => {
       } else if (mode === 'Bancaria') {
         // Fallback robusto para encontrar el código si la cabecera falló.
         // Si no hay rawCode, revisamos la columna justo antes del concepto
-        if (mapping && mapping.concept > 0) {
+        if (mapping && mapping.concept > 0 && mapping.concept - 1 !== mapping.partida && mapping.concept - 1 !== mapping.date) {
           const potentialCode = row[mapping.concept - 1];
           if (potentialCode !== undefined && potentialCode !== null && String(potentialCode).trim() !== '') {
             code = String(potentialCode).trim();
@@ -367,10 +395,9 @@ const processSheet = (data: any[][], mode: UserMode): ParseResult => {
       // If name is empty but has amount, might be data issue, but we'll take it if we have a code
       if (!cleanName && !code) continue;
 
-      // ORPHAN DATA GUARD: If we find an account but haven't seen a "Partida" header yet,
-      // assume this is Partida 1.
+      // Missing references must remain explicit; never fabricate Partida 1.
       if (!state.currentPartidaId) {
-        state.currentPartidaId = "Partida 1";
+        state.currentPartidaId = "Sin referencia de partida";
       }
 
       state.bufferLines.push({
@@ -415,6 +442,14 @@ const processSheet = (data: any[][], mode: UserMode): ParseResult => {
   return { success: true, data: entries };
 };
 
+export const selectJournalSheet = (sheetNames: string[]): string => {
+  const matches = sheetNames.filter(name => /^partidas?$/i.test(name.trim()));
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) throw new Error('Hay varias hojas llamadas «Partida» o «Partidas». Deje ese nombre únicamente en la hoja que desea procesar.');
+  if (sheetNames.length === 1) return sheetNames[0];
+  throw new Error('Nombre «Partidas» o «Partida» a la hoja del libro diario que desea procesar.');
+};
+
 export const parseFile = async (file: File, mode: UserMode): Promise<ParseResult> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -423,8 +458,14 @@ export const parseFile = async (file: File, mode: UserMode): Promise<ParseResult
       try {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
+        let journalSheetName: string;
+        try {
+          journalSheetName = selectJournalSheet(workbook.SheetNames);
+        } catch (error) {
+          resolve({ success: false, errors: [{ line: 0, message: (error as Error).message, type: 'STRUCTURAL' }] });
+          return;
+        }
+        const worksheet = workbook.Sheets[journalSheetName];
 
         // Parse to Array of Arrays (AOA)
         let aoa = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
@@ -432,7 +473,7 @@ export const parseFile = async (file: File, mode: UserMode): Promise<ParseResult
         if (!aoa || aoa.length === 0) {
           resolve({
             success: false,
-            errors: [{ line: 0, message: 'El archivo está vacío.', type: 'STRUCTURAL' }]
+            errors: [{ line: 0, message: `La hoja «${journalSheetName}» está vacía.`, type: 'STRUCTURAL' }]
           });
           return;
         }

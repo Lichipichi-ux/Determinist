@@ -66,17 +66,17 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded, mode }) => {
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto">
+    <div className="w-full sap-file-upload">
       <div
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
         className={`
-          relative border-2 border-dashed rounded-sm p-12 text-center transition-all duration-200
+          relative border-2 border-dashed rounded-sm p-4 text-center transition-all duration-200
           ${isDragging
             ? 'border-denim bg-denim/5'
-            : 'border-obsidian/20 dark:border-white/20 hover:border-denim hover:bg-obsidian/5 dark:hover:bg-white/5'
+            : 'border-obsidian/20  hover:border-denim hover:bg-obsidian/5 '
           }
           ${isProcessing ? 'opacity-50 pointer-events-none' : ''}
         `}
@@ -90,49 +90,38 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded, mode }) => {
           disabled={isProcessing}
         />
 
-        <div className="flex flex-col items-center justify-center space-y-6">
-          <div className={`p-4 rounded-full transition-colors ${isDragging ? 'bg-denim/20' : 'bg-seashell dark:bg-white/5'}`}>
+        <div className="flex flex-col items-center justify-center space-y-3">
+          <div className={`p-2 transition-colors ${isDragging ? 'bg-denim/20' : 'bg-seashell '}`}>
             {isProcessing ? (
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-denim"></div>
             ) : (
-              <Upload className={`w-10 h-10 ${isDragging ? 'text-denim' : 'text-obsidian/40 dark:text-seashell/40'}`} strokeWidth={1.5} />
+              <Upload className={`w-6 h-6 ${isDragging ? 'text-denim' : 'text-obsidian/40 '}`} strokeWidth={1.5} />
             )}
           </div>
 
           <div>
-            <h3 className="text-lg font-bold text-obsidian dark:text-seashell uppercase tracking-tight">
+            <h3 className="text-sm font-bold text-obsidian  uppercase tracking-tight">
               {isProcessing ? 'Analizando Estructura...' : 'Arrastre archivo aquí'}
             </h3>
-            <p className="text-xs text-obsidian/50 dark:text-seashell/50 mt-2 font-medium">
-              Soporte para Excel (.xlsx) y Texto Delimitado (.csv)
+            <p className="text-xs text-obsidian/50  mt-2 font-medium">
+              Excel (.xlsx) / CSV (.csv)
             </p>
           </div>
 
           {!isProcessing && (
             <label
               htmlFor="fileInput"
-              className="px-8 py-2.5 bg-obsidian dark:bg-white text-seashell dark:text-obsidian rounded-sm text-xs font-bold uppercase tracking-wider hover:bg-denim dark:hover:bg-seashell/90 cursor-pointer transition-colors shadow-sm"
+              tabIndex={0}
+              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.getElementById("fileInput")?.click(); } }}
+              className="sap-primary px-8 py-2.5 bg-obsidian  text-seashell  rounded-sm text-xs font-bold uppercase tracking-wider hover:bg-denim  cursor-pointer transition-colors shadow-sm"
             >
-              Examinar Equipo
+              Examinar…
             </label>
           )}
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-px bg-obsidian/10 dark:bg-white/10 border border-obsidian/10 dark:border-white/10 rounded-sm overflow-hidden">
-        <div className="bg-white dark:bg-obsidian p-3 flex items-center justify-center space-x-2">
-          <FileType className="w-4 h-4 text-denim" />
-          <span className="text-[10px] font-semibold text-obsidian/60 dark:text-seashell/60 uppercase">Estructura Plana</span>
-        </div>
-        <div className="bg-white dark:bg-obsidian p-3 flex items-center justify-center space-x-2">
-          <AlertCircle className="w-4 h-4 text-denim" />
-          <span className="text-[10px] font-semibold text-obsidian/60 dark:text-seashell/60 uppercase">Validación Estricta</span>
-        </div>
-        <div className="bg-white dark:bg-obsidian p-3 flex items-center justify-center space-x-2">
-          <CheckCircle2 className="w-4 h-4 text-denim" />
-          <span className="text-[10px] font-semibold text-obsidian/60 dark:text-seashell/60 uppercase">Inferencia Bloques</span>
-        </div>
-      </div>
+
     </div>
   );
 };

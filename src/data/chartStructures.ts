@@ -1,9 +1,10 @@
 import { FinancialStructure, ChartNode } from '../types';
 
-const acc = (id: string, name: string): ChartNode => ({
+const acc = (id: string, name: string, children?: ChartNode[]): ChartNode => ({
   id,
   name,
-  level: 'ACCOUNT'
+  level: 'ACCOUNT',
+  children
 });
 
 const sub = (id: string, name: string, children: ChartNode[]): ChartNode => ({
@@ -88,7 +89,7 @@ export const BALANCE_GENERAL: FinancialStructure = {
             acc('bg_inv_cp', 'Inversiones a Corto Plazo')
           ]),
           sub('bg_cxc', 'CUENTAS POR COBRAR', [
-            sub('bg_cdc_g', 'Clientes/Deudores Comerciales', [
+            acc('bg_cdc_g', 'Clientes/Deudores Comerciales', [
               acc('bg_rci', '(Menos Reserva para Cuentas Incobrables)')
             ]),
             acc('bg_ocxc_cp', 'Otras Cuentas por Cobrar a Corto Plazo'),
@@ -100,7 +101,7 @@ export const BALANCE_GENERAL: FinancialStructure = {
             acc('bg_isr_xa', 'ISR Retenido por Acreditar Sobre Ventas'),
             acc('bg_apv', 'Anticipo a Proveedores'),
             acc('bg_asc', 'Anticipo sobre Compras'),
-            sub('bg_dcc_cp_g', 'Documentos Comerciales por Cobrar a Corto Plazo', [
+            acc('bg_dcc_cp_g', 'Documentos Comerciales por Cobrar a Corto Plazo', [
               acc('bg_dd', '(Menos Documentos Descontados)')
             ]),
             acc('bg_cpr', 'Cuenta Promesa'),
@@ -116,7 +117,7 @@ export const BALANCE_GENERAL: FinancialStructure = {
             acc('bg_bop_pa', 'Bonificaciones Pagadas por Anticipado'),
             acc('bg_alp_pa', 'Alquileres Pagados por Anticipado'),
             acc('bg_comp_pa', 'Comisiones Pagadas por Anticipado'),
-            acc('bg_intp_pa', 'Intereses Pagadas por Anticipado'),
+            acc('bg_intp_pa', 'Intereses Pagados por Anticipado'),
             acc('bg_pubp_pa', 'Publicidad Pagada por Anticipado'),
             acc('bg_prop_pa', 'Propaganda Pagada por Anticipado')
           ]),
@@ -162,7 +163,7 @@ export const BALANCE_GENERAL: FinancialStructure = {
             acc('bg_iva_pp', 'IVA por Pagar'),
             acc('bg_igss_pp', 'IGSS por Pagar/Cuotas Patronales y Laborales por Pagar'),
             acc('bg_iusi_pp', 'Impuesto Único Sobre Inmuebles por Pagar'),
-            sub('bg_isr_pp_g', 'Impuesto Sobre la Renta por Pagar', [
+            acc('bg_isr_pp_g', 'Impuesto Sobre la Renta por Pagar', [
               acc('bg_isr_tr_acr', '(Menos ISR Trimestral por Acreditar)'),
               acc('bg_iso_acr_g', '(Menos ISO por Acreditar)')
             ]),
@@ -182,13 +183,13 @@ export const BALANCE_GENERAL: FinancialStructure = {
             acc('bg_coxp', 'Comisiones por Pagar')
           ]),
           sub('bg_idif', 'INGRESOS DIFERIDOS', [
-            sub('bg_acpa_g', 'Alquileres Cobrados por Anticipado', [
+            acc('bg_acpa_g', 'Alquileres Cobrados por Anticipado', [
               acc('bg_apnd', 'Alquileres Percibidos no Devengados')
             ]),
-            sub('bg_ccpa_g', 'Comisiones Cobradas por Anticipado', [
+            acc('bg_ccpa_g', 'Comisiones Cobradas por Anticipado', [
               acc('bg_cpnd', 'Comisiones Percibidas no Devengadas')
             ]),
-            sub('bg_icpa_g', 'Intereses Cobrados por Anticipado', [
+            acc('bg_icpa_g', 'Intereses Cobrados por Anticipado', [
               acc('bg_ipnd', 'Intereses Percibidos no Devengados')
             ])
           ])
@@ -202,7 +203,7 @@ export const BALANCE_GENERAL: FinancialStructure = {
       children: [
         acc('bg_cap', 'Capital'),
         acc('bg_cap_s', 'Capital Social'),
-        sub('bg_cap_a_g', 'Capital Autorizado', [
+        acc('bg_cap_a_g', 'Capital Autorizado', [
           acc('bg_aps', '(Menos Acciones por Suscribir)'),
           acc('bg_sda', '(Menos Suscripciones de Acciones)')
         ]),
@@ -334,11 +335,12 @@ export const ESTADO_RESULTADOS: FinancialStructure = {
       name: 'INGRESOS DE OPERACIÓN',
       level: 'GROUP',
       children: [
-        sub('er_v_g', 'Ventas', [
+        acc('er_v_g', 'Ventas', [
           acc('er_drv', '(-) Devoluciones y Rebajas Sobre Ventas')
         ]),
-        acc('er_oiop', 'Otros Ingresos de Operación'),
-        acc('er_oip', 'Otros Ingresos permanentes')
+        acc('er_oiop', 'Otros Ingresos de Operación', [
+          acc('er_oip', 'Otros Ingresos permanentes')
+        ])
       ]
     },
     {
@@ -465,5 +467,8 @@ export const ESTADO_RESULTADOS: FinancialStructure = {
     }
   ]
 };
+
+// One balance contains all three sections in presentation order.
+BALANCE_GENERAL.rootNodes = [BALANCE_GENERAL.rootNodes[0], BALANCE_GENERAL.rootNodes[2], BALANCE_GENERAL.rootNodes[1]];
 
 export const ALL_STRUCTURES = [BALANCE_GENERAL, COSTO_PRODUCCION, ESTADO_RESULTADOS];
