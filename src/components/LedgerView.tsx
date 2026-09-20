@@ -264,7 +264,7 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, mode, jou
   );
 
   const navigateAccounts = (event: React.KeyboardEvent<HTMLElement>) => {
-    if (viewMode !== 'DETAIL' || isTViewerOpen || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     const buttons = Array.from(accountListRef.current?.querySelectorAll<HTMLButtonElement>('button[data-account-code]') ?? []);
     if (!buttons.length) return;
