@@ -105,7 +105,7 @@ const RecapitulationView: React.FC<RecapitulationViewProps> = ({ ledgerData }) =
             <div className="flex-1 overflow-auto p-0 min-h-0 -webkit-overflow-scrolling-touch">
                 {/* Wrapper for horizontal scroll on mobile */}
                 <div className="overflow-x-auto">
-                    <table className="min-w-full lg:min-w-0 border-collapse">
+                    <table className="sap-recap-table min-w-full lg:min-w-0 border-collapse">
                         <thead className="bg-obsidian/5  sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th rowSpan={2} scope="col" className="px-4 py-3 md:px-4 md:py-3 text-left text-sm md:text-xs lg:text-[10px] font-bold text-obsidian/60  uppercase tracking-wider border-b border-obsidian/10  align-bottom bg-gray-50  min-w-[180px] md:min-w-0">Cuenta</th>

@@ -37,3 +37,9 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
 .sap-app .sap-accounting-alert button:hover{background:#f3dede!important;color:#84252d!important;border-color:#c98f94}
 .sap-app .sap-accounting-alert .space-y-1>div{background:#fffafa!important;border:1px solid #e7cccc!important;color:#84252d!important;font-family:inherit}
 .sap-app .sap-accounting-alert .space-y-1>div>span:first-child{background:#f2dddd!important;color:#84252d!important}
+.sap-app .sap-view-toolbar{justify-content:flex-start}
+.sap-more-dropdown{left:0;right:auto;max-width:calc(100vw - 40px)}
+.sap-app .sap-more-menu summary{font-size:20px;font-weight:400;border-color:#afb1b3;background:linear-gradient(#fafafa,#e3e3e3)}
+.sap-app .sap-recap-table tbody tr td:nth-last-child(-n+2),
+.sap-app .sap-recap-table thead tr:first-child th:last-child,
+.sap-app .sap-recap-table thead tr:last-child th:nth-last-child(-n+2){background:var(--selected)!important;color:var(--selected-text)}

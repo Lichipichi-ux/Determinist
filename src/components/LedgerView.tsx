@@ -475,11 +475,12 @@ const LedgerView: React.FC<LedgerViewProps> = ({ ledgerData, fileName, mode, jou
         {/* Main Content: Ledger Table or Recapitulation */}
         <div className="flex-1 flex flex-col min-h-[320px] md:min-h-0 md:h-full overflow-hidden bg-white ">
 
-          <div className="sap-view-toolbar"><span>{isTViewerOpen ? 'Mayorización de gráficos' : viewMode === 'RECAP' ? 'Balance de comprobación' : 'Detalle de cuentas'}</span>
+          <div className="sap-view-toolbar">
             <details ref={moreMenu} className="sap-more-menu" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) e.currentTarget.open = false; }} onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } }}>
               <summary aria-label="Más opciones" title="Más opciones">···</summary>
               <div className="sap-more-dropdown"><button type="button" onClick={() => { setIsTViewerOpen(true); if (moreMenu.current) moreMenu.current.open = false; }}>Mayorización de gráficos</button></div>
             </details>
+            <span>{isTViewerOpen ? 'Mayorización de gráficos' : viewMode === 'RECAP' ? 'Balance de comprobación' : 'Detalle de cuentas'}</span>
           </div>
           {isTViewerOpen ? <TAccountsViewer ledgerData={ledgerData} mode={mode} onClose={() => setIsTViewerOpen(false)} /> : viewMode === 'RECAP' ? (
             <RecapitulationView ledgerData={ledgerData} />
