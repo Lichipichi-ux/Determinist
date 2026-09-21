@@ -47,7 +47,7 @@ export const BALANCE_GENERAL: FinancialStructure = {
             acc('bg_cri', 'Cristalería'),
             acc('bg_pel', 'Peltre'),
             acc('bg_man', 'Mantelería'),
-            acc('bg_dep_ac', '(Menos Depreciación Acumulada)')
+            acc('bg_dep_ac', '(-) Depreciación acumulada')
           ]),
           sub('bg_ilp', 'INVERSIONES A LARGO PLAZO', [
             acc('bg_inv_lp', 'Inversiones a Largo Plazo'),
@@ -64,7 +64,7 @@ export const BALANCE_GENERAL: FinancialStructure = {
             acc('bg_dli', 'Derechos Literarios'),
             acc('bg_for', 'Fórmulas'),
             acc('bg_con', 'Concesiones'),
-            acc('bg_ama', '(Menos Amortización Acumulada)')
+            acc('bg_ama', '(-) Amortización acumulada')
           ]),
           acc('bg_oanc', 'OTROS ACTIVOS NO CORRIENTES')
         ]),
