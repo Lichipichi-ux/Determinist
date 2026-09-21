@@ -35,6 +35,21 @@ export function compileChartStructure(activeBook: FinancialStructure, selectedId
     const injectDirectAccounts = (parentId: string, level: number) => {
       const node = findNodeById(activeBook.rootNodes, parentId);
       if (!node) return;
+      const adjustment = parentId === 'bg_ppe'
+        ? { id: 'bg_dep_ac', name: 'Depreciación Acumulada' }
+        : parentId === 'bg_int'
+          ? { id: 'bg_ama', name: 'Amortización Acumulada' }
+          : null;
+      if (adjustment) {
+        node.children?.forEach(asset => {
+          if (asset.id === adjustment.id || !containsSelection(asset)) return;
+          appendNode(asset, level);
+          if (selected.has(adjustment.id)) {
+            lines.push({ name: `(Menos ${adjustment.name} ${asset.name})`, level: level + 1 });
+          }
+        });
+        return;
+      }
       if (node.level === 'ACCOUNT') appendNode(node, level);
       else node.children?.forEach(child => appendNode(child, level));
     };
